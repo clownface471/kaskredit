@@ -1,5 +1,11 @@
 # Project-level configuration.
 cmake_minimum_required(VERSION 3.14)
+
+# Menekan error C2220 (warnings as errors)
+add_compile_options(/W3)
+string(REPLACE "/WX" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+string(REPLACE "/WX" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+
 project(kaskredit_1 LANGUAGES CXX)
 
 # The name of the executable created for the application. Change this to change

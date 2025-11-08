@@ -38,7 +38,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       // Kita hanya perlu kembali ke halaman sebelumnya (login)
       // atau biarkan listener di splash/router yang handle
       if (mounted) {
-        context.pop(); // Kembali ke halaman Login
+        context.go('/login'); // Kembali ke halaman Login
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Registrasi berhasil! Silakan login.")),
         );
@@ -154,7 +154,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   const Text("Sudah punya akun?"),
                   TextButton(
                     onPressed: () {
-                      context.pop(); // Kembali ke halaman Login
+                      context.go('/login'); // Kembali ke halaman Login
                     },
                     child: const Text("Login di sini"),
                   ),

@@ -1,0 +1,67 @@
+// 1. PERBAIKI TYPO 'packagepackage'
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// 2. TAMBAHKAN IMPORT UNTUK GENERATOR
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+// KODE BENAR:
+import '../../../shared/models/product.dart';
+
+// 3. TAMBAHKAN PART FILE UNTUK GENERATOR
+part 'product_repository.g.dart';
+
+class ProductRepository {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  late final CollectionReference _productsRef;
+
+  ProductRepository() {
+    _productsRef = _firestore.collection('products');
+  }
+
+  // === READ ===
+  Stream<List<Product>> getProducts(String userId) {
+    return _productsRef
+        .where('userId', isEqualTo: userId)
+        .where('isActive', isEqualTo: true)
+        .orderBy('name')
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        return Product.fromFirestore(doc);
+      }).toList();
+    });
+  }
+
+  // === CREATE ===
+  Future<void> addProduct(Product product) async {
+    try {
+      await _productsRef.add(product.toJson());
+    } catch (e) {
+      throw Exception('Gagal menambah produk: $e');
+    }
+  }
+
+  // === UPDATE ===
+  Future<void> updateProduct(Product product) async {
+    try {
+      await _productsRef.doc(product.id).update(product.toJson());
+    } catch (e) {
+      throw Exception('Gagal mengupdate produk: $e');
+    }
+  }
+
+  // === DELETE ===
+  Future<void> deleteProduct(String productId) async {
+    try {
+      await _productsRef.doc(productId).update({'isActive': false});
+    } catch (e) {
+      throw Exception('Gagal menghapus produk: $e');
+    }
+  }
+}
+
+// 4. PERBAIKI 'Ref' MENJADI 'ProductRepositoryRef' (spesifik)
+@Riverpod(keepAlive: true)
+ProductRepository productRepository(ProductRepositoryRef ref) {
+  return ProductRepository();
+}

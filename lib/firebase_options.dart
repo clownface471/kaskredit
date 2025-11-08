@@ -85,4 +85,5 @@ class DefaultFirebaseOptions {
     storageBucket: 'kaskredit-bb294.firebasestorage.app',
     measurementId: 'G-REG3M4MZ46',
   );
+
 }
