@@ -103,6 +103,11 @@ Widget build(BuildContext context, WidgetRef ref){
                     onTap: () => context.push('/customers'),
                   ),
                   _MenuCard(
+                    title: "Bayar Utang",
+                    icon: Icons.monetization_on,
+                    onTap: () => context.push('/debt'),
+                  ),
+                  _MenuCard(
                     title: "Pengeluaran",
                     icon: Icons.payment,
                     onTap: () {},

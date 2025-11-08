@@ -1,9 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
-import 'package:flutter_riverpod/flutter_riverpod.dart'; // 1. TAMBAHKAN IMPORT INI
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-// 2. PERBAIKI SEMUA IMPORT DI BAWAH INI MENJADI RELATIVE
 import '../presentation/models/cart_state.dart';
 import '../../../shared/models/transaction.dart';
 import '../../../shared/models/transaction_item.dart';
@@ -21,8 +20,9 @@ class TransactionRepository {
         _productsRef = FirebaseFirestore.instance.collection('products'),
         _customersRef = FirebaseFirestore.instance.collection('customers');
 
-  // --- FUNGSI UTAMA: CREATE TRANSACTION ---
+  // --- FUNGSI CREATE TRANSACTION (Sudah ada) ---
   Future<void> createTransaction(CartState cart, String userId) async {
+    // ... (kode createTransaction Anda yang sudah berfungsi)
     final transactionNumber = await _generateTransactionNumber();
     final batch = _firestore.batch();
     final transactionRef = _transactionsRef.doc();
@@ -50,8 +50,10 @@ class TransactionRepository {
           ? PaymentStatus.PAID
           : PaymentStatus.DEBT,
       paymentType: cart.paymentType,
-      paidAmount: (cart.paymentType == PaymentType.CASH) ? cart.totalAmount : 0.0,
-      remainingDebt: (cart.paymentType == PaymentType.CASH) ? 0.0 : cart.totalAmount,
+      paidAmount:
+          (cart.paymentType == PaymentType.CASH) ? cart.totalAmount : 0.0,
+      remainingDebt:
+          (cart.paymentType == PaymentType.CASH) ? 0.0 : cart.totalAmount,
       transactionDate: DateTime.now(),
       dueDate: cart.dueDate,
       notes: cart.notes,
@@ -69,7 +71,8 @@ class TransactionRepository {
       });
     }
 
-    if (cart.paymentType == PaymentType.CREDIT && cart.selectedCustomer != null) {
+    if (cart.paymentType == PaymentType.CREDIT &&
+        cart.selectedCustomer != null) {
       final customerRef = _customersRef.doc(cart.selectedCustomer!.id);
       batch.update(customerRef, {
         'totalDebt': FieldValue.increment(cart.totalAmount),
@@ -80,7 +83,9 @@ class TransactionRepository {
     await batch.commit();
   }
 
+  // --- FUNGSI GENERATE NOMOR (Sudah ada) ---
   Future<String> _generateTransactionNumber() async {
+    // ... (kode _generateTransactionNumber Anda yang sudah berfungsi)
     final dateStr = DateFormat('yyyyMMdd').format(DateTime.now());
     final query = await _transactionsRef
         .where('transactionNumber', isGreaterThanOrEqualTo: 'TRX-$dateStr-0000')
@@ -92,8 +97,7 @@ class TransactionRepository {
     if (query.docs.isEmpty) {
       return 'TRX-$dateStr-0001';
     }
-
-    // 3. PERBAIKAN BUG LOGIKA: Ambil dari 'transactionNumber', bukan 'id'
+    
     final lastTxNum = query.docs.first.get('transactionNumber') as String;
     final lastNumStr = lastTxNum.split('-').last;
 
@@ -101,9 +105,20 @@ class TransactionRepository {
     final newNum = (lastNum + 1).toString().padLeft(4, '0');
     return 'TRX-$dateStr-$newNum';
   }
-}
 
-// 4. PERBAIKI: Ganti 'TransactionRepositoryRef' menjadi 'Ref'
+  // --- METHOD YANG HILANG (TAMBAHKAN INI) ---
+  Stream<List<Transaction>> getTransactionsWithDebt(String customerId) {
+    return _transactionsRef
+        .where('customerId', isEqualTo: customerId)
+        .where('paymentStatus', whereIn: ['DEBT', 'PARTIAL'])
+        .orderBy('transactionDate', descending: true)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Transaction.fromFirestore(doc)).toList());
+  }
+} // <-- PASTIKAN METHOD BARU ADA DI ATAS KURUNG TUTUP INI
+
+// --- PROVIDER (Sudah ada) ---
 @Riverpod(keepAlive: true)
 TransactionRepository transactionRepository(Ref ref) {
   return TransactionRepository();
