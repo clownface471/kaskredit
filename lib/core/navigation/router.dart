@@ -12,6 +12,7 @@ import '../../features/customers/presentation/screens/customer_list_screen.dart'
 import '../../features/customers/presentation/screens/add_customer_screen.dart';
 import '../../features/customers/presentation/screens/edit_customer_screen.dart';
 import '../../features/customers/presentation/providers/customer_providers.dart';
+import '../../features/transactions/presentation/screens/cashier_screen.dart';
 import '../../shared/models/customer.dart'; 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
@@ -132,6 +133,10 @@ GoRoute(
       path: '/reports',
       builder: (context, state) =>
           const Scaffold(body: Center(child: Text("Halaman Laporan"))),
+    ),
+    GoRoute(
+      path: '/cashier',
+      builder: (context, state) => const CashierScreen(),
     ),
   ],
 );

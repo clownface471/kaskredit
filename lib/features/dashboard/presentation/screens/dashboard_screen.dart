@@ -48,7 +48,7 @@ Widget build(BuildContext context, WidgetRef ref){
             ),
             onPressed: () {
               // Nanti ke halaman kasir
-              // context.push('/cashier');
+              context.push('/cashier');
             },
             child: const Text(
               "Transaksi",

@@ -10,6 +10,8 @@ dependencies:
   flutter:
     sdk: flutter
 
+  intl: ^0.19.0
+
   # Firebase
 
   # State Management
@@ -32,6 +34,8 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
+  intl: ^0.19.0
 
   # Code Generation
   build_runner: ^2.4.7
