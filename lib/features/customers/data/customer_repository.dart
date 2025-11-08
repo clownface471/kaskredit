@@ -1,8 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // <-- TAMBAHKAN IMPORT INI
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:kaskredit_1/shared/models/customer.dart'; // Import model baru kita
+import '../../../shared/models/customer.dart'; // Ganti ke relative import
 
-part 'customer_repository.g.dart'; // Akan dibuat otomatis
+part 'customer_repository.g.dart';
 
 class CustomerRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -13,11 +14,10 @@ class CustomerRepository {
   }
 
   // === READ ===
-  // Stream untuk mendapatkan semua pelanggan secara real-time
   Stream<List<Customer>> getCustomers(String userId) {
     return _customersRef
         .where('userId', isEqualTo: userId)
-        .orderBy('name') // Urutkan berdasarkan nama
+        .orderBy('name')
         .snapshots()
         .map((snapshot) {
       return snapshot.docs.map((doc) {
@@ -45,28 +45,29 @@ class CustomerRepository {
   }
 
   // === DELETE ===
-  [cite_start]// Sesuai blueprint[cite: 788], kita cek dulu utangnya
   Future<void> deleteCustomer(String customerId) async {
     try {
-      // Ambil data pelanggan dulu
       final doc = await _customersRef.doc(customerId).get();
+      // Pastikan data ada sebelum mencoba mengaksesnya
+      if (!doc.exists) {
+        throw Exception('Pelanggan tidak ditemukan.');
+      }
       final customer = Customer.fromFirestore(doc);
 
-      // Logika pengaman: Jangan hapus jika masih punya utang
       if (customer.totalDebt > 0) {
         throw Exception(
             'Tidak dapat menghapus pelanggan yang masih memiliki utang.');
       }
-      
+
       await _customersRef.doc(customerId).delete();
     } catch (e) {
       throw Exception('Gagal menghapus pelanggan: $e');
     }
   }
-}
+} // <-- Pastikan closing brace ini ada (ini adalah baris ~48-50)
 
 // Provider Riverpod untuk repository
 @Riverpod(keepAlive: true)
-CustomerRepository customerRepository(Ref ref) {
+CustomerRepository customerRepository(Ref ref) { // <-- Ganti ke Ref
   return CustomerRepository();
 }

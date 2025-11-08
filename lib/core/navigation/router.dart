@@ -6,8 +6,13 @@ import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../../features/products/presentation/screens/product_list_screen.dart';
 import '../../features/products/presentation/screens/add_product_screen.dart';
-import '../../features/products/presentation/screens/edit_product_screen.dart'; // 1. IMPORT
-import '../../features/products/presentation/providers/product_providers.dart';  // 2. IMPORT (untuk ambil data)
+import '../../features/products/presentation/screens/edit_product_screen.dart'; 
+import '../../features/products/presentation/providers/product_providers.dart';
+import '../../features/customers/presentation/screens/customer_list_screen.dart'; 
+import '../../features/customers/presentation/screens/add_customer_screen.dart';
+import '../../features/customers/presentation/screens/edit_customer_screen.dart';
+import '../../features/customers/presentation/providers/customer_providers.dart';
+import '../../shared/models/customer.dart'; 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
 import '../../shared/models/product.dart';
@@ -83,11 +88,44 @@ GoRoute(
         ),
       ],
     ),
-    // Halaman Pelanggan (placeholder)
-    GoRoute(
+  GoRoute(
       path: '/customers',
-      builder: (context, state) =>
-          const Scaffold(body: Center(child: Text("Halaman Pelanggan"))),
+      builder: (context, state) => const CustomerListScreen(),
+      routes: [
+        GoRoute(
+          path: 'add',
+          builder: (context, state) => const AddCustomerScreen(),
+        ),
+        // RUTE BARU: EDIT CUSTOMER
+        GoRoute(
+          path: 'edit/:id',
+          builder: (context, state) {
+            final customerId = state.pathParameters['id']!;
+            return ProviderScope(
+              child: Consumer(
+                builder: (context, ref, child) {
+                  // Pakai READ, bukan WATCH (agar tidak crash saat delete)
+                  final customersAsync = ref.read(customersProvider);
+                  Customer? customer;
+                  try {
+                    customer = customersAsync.valueOrNull?.firstWhere(
+                      (c) => c.id == customerId,
+                    );
+                  } catch (_) {
+                    customer = null;
+                  }
+
+                  if (customer == null) {
+                    return const Scaffold(
+                        body: Center(child: Text("Pelanggan tidak ditemukan")));
+                  }
+                  return EditCustomerScreen(customer: customer);
+                },
+              ),
+            );
+          },
+        ),
+      ],
     ),
     // Halaman Laporan (placeholder)
     GoRoute(
