@@ -3,14 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart'; // Untuk format tanggal
 import 'package:kaskredit_1/features/reports/presentation/providers/report_provider.dart';
 import 'package:kaskredit_1/shared/models/sales_report.dart';
+import 'package:kaskredit_1/core/utils/formatters.dart';
 
 class ReportScreen extends ConsumerWidget {
   const ReportScreen({super.key});
 
   // Helper untuk format Rupiah
-  String _formatCurrency(double amount) {
-    return 'Rp ${amount.toStringAsFixed(0)}';
-  }
+  // String _formatCurrency(double amount) {
+  //   return 'Rp ${amount.toStringAsFixed(0)}';
+  // }
 
   // Helper untuk memanggil Date Picker
   Future<void> _selectDateRange(BuildContext context, WidgetRef ref) async {
@@ -103,11 +104,11 @@ class ReportScreen extends ConsumerWidget {
               children: [
                 Text("Ringkasan Penjualan", style: Theme.of(context).textTheme.titleLarge),
                 const Divider(height: 20),
-                _StatRow(label: "Total Omzet:", value: _formatCurrency(report.totalSales)),
-                _StatRow(label: "Total Profit:", value: _formatCurrency(report.totalProfit)),
+                _StatRow(label: "Total Omzet:", value: Formatters.currency.format(report.totalSales)),
+                _StatRow(label: "Total Profit:", value: Formatters.currency.format(report.totalProfit)),
                 _StatRow(label: "Jumlah Transaksi:", value: "${report.totalTransactions}x"),
-                _StatRow(label: "Penjualan Tunai:", value: _formatCurrency(report.cashSales)),
-                _StatRow(label: "Penjualan Kredit:", value: _formatCurrency(report.creditSales)),
+                _StatRow(label: "Penjualan Tunai:", value: Formatters.currency.format(report.cashSales)),
+                _StatRow(label: "Penjualan Kredit:", value: Formatters.currency.format(report.creditSales)),
               ],
             ),
           ),
@@ -126,8 +127,7 @@ class ReportScreen extends ConsumerWidget {
               child: ListTile(
                 leading: CircleAvatar(child: Text(product.quantitySold.toString())),
                 title: Text(product.productName),
-                subtitle: Text("Omzet: ${_formatCurrency(product.totalSales)} | Profit: ${_formatCurrency(product.totalProfit)}"),
-              ),
+                subtitle: Text("Omzet: ${Formatters.currency.format(product.totalSales)} | Profit: ${Formatters.currency.format(product.totalProfit)}"),              ),
             ),
           ),
         

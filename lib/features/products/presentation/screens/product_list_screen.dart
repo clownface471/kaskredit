@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/product_providers.dart';
+import 'package:kaskredit_1/core/utils/formatters.dart';
 
 // 1. Ubah dari StatelessWidget menjadi ConsumerWidget
 class ProductListScreen extends ConsumerWidget {
@@ -44,7 +45,9 @@ class ProductListScreen extends ConsumerWidget {
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 child: ListTile(
                   title: Text(product.name),
-                  subtitle: Text("Stok: ${product.stock} | Harga: Rp ${product.sellingPrice}"),
+                  subtitle: Text(
+                    "Stok: ${product.stock} | Harga: ${Formatters.currency.format(product.sellingPrice)}",
+                  ),
                   trailing: const Icon(Icons.arrow_forward_ios),
                   onTap: () {
                     context.push('/products/edit/${product.id}');

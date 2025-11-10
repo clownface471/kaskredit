@@ -5,6 +5,7 @@ import 'package:kaskredit_1/features/auth/data/auth_repository.dart';
 // 1. IMPORT PROVIDER BARU KITA
 import 'package:kaskredit_1/features/dashboard/presentation/providers/dashboard_providers.dart';
 import 'package:kaskredit_1/shared/models/dashboard_stats.dart';
+import 'package:kaskredit_1/core/utils/formatters.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -107,17 +108,17 @@ class DashboardScreen extends ConsumerWidget {
                     // Gunakan widget _StatRow
                     _StatRow(
                       label: "Total Penjualan:",
-                      value: "Rp ${stats?.todaySales.toStringAsFixed(0) ?? '...'}",
+                      value: isLoading ? "..." : Formatters.currency.format(stats.todaySales),
                       isLoading: isLoading,
                     ),
                     _StatRow(
                       label: "Total Profit:",
-                      value: "Rp ${stats?.todayProfit.toStringAsFixed(0) ?? '...'}",
+                      value: isLoading ? "..." : Formatters.currency.format(stats.todayProfit),
                       isLoading: isLoading,
                     ),
                     _StatRow(
                       label: "Transaksi:",
-                      value: "${stats?.todayTransactions ?? '...'}x",
+                      value: isLoading ? "..." : "${stats.todayTransactions}x",
                       isLoading: isLoading,
                     ),
                   ],
