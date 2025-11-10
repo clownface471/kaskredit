@@ -7,7 +7,6 @@ import 'package:kaskredit_1/features/transactions/presentation/providers/transac
 import 'package:kaskredit_1/shared/models/customer.dart';
 import 'package:kaskredit_1/shared/models/transaction.dart';
 
-// 1. Ubah jadi ConsumerStatefulWidget
 class PaymentDialog extends ConsumerStatefulWidget {
   final Customer customer;
   const PaymentDialog({super.key, required this.customer});
@@ -17,9 +16,11 @@ class PaymentDialog extends ConsumerStatefulWidget {
 }
 
 class _PaymentDialogState extends ConsumerState<PaymentDialog> {
-  // State untuk melacak transaksi & jumlah bayar
   Transaction? _selectedTransaction;
   final _amountController = TextEditingController();
+  
+  // 1. TAMBAHKAN STATE _isLoading
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -27,32 +28,32 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
     super.dispose();
   }
 
-  // --- FUNGSI PROSES BAYAR ---
   Future<void> _processPayment() async {
     final paymentAmount = double.tryParse(_amountController.text) ?? 0;
     final userId = ref.read(currentUserProvider).value?.id;
 
-    // Validasi
     if (paymentAmount <= 0 || _selectedTransaction == null || userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Data tidak valid.")),
+        const SnackBar(content: Text("Data tidak valid."), backgroundColor: Colors.red),
       );
       return;
     }
 
+    // 2. SET LOADING JADI TRUE
+    setState(() => _isLoading = true);
+
     try {
-      // Panggil repository
       await ref.read(paymentRepositoryProvider).processPayment(
             transactionId: _selectedTransaction!.id!,
             customerId: widget.customer.id!,
             paymentAmount: paymentAmount,
-            paymentMethod: "CASH", // Asumsi bayar tunai
+            paymentMethod: "CASH",
             userId: userId,
             customerName: widget.customer.name,
           );
       
       if (mounted) {
-        Navigator.of(context).pop(); // Tutup bottom sheet
+        Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Pembayaran berhasil!"), backgroundColor: Colors.green),
         );
@@ -63,52 +64,74 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
           SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
         );
       }
+    } finally {
+      // 3. SET LOADING JADI FALSE
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Ambil daftar transaksi yg belum lunas untuk pelanggan ini
     final debtTxsAsync = ref.watch(transactionsWithDebtProvider(widget.customer.id!));
-    
-    // Hitung sisa utang jika ada transaksi yg dipilih
     final remainingDebt = _selectedTransaction?.remainingDebt ?? 0;
 
+    // 4. LOGIKA UNTUK ENABLE/DISABLE TOMBOL
+    final bool canSubmit = _selectedTransaction != null && !_isLoading;
+
     return Padding(
-      // Padding untuk keyboard
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
         padding: const EdgeInsets.all(20),
         child: Column(
-          mainAxisSize: MainAxisSize.min, // Agar tingginya pas
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text("Bayar Utang: ${widget.customer.name}", style: Theme.of(context).textTheme.headlineSmall),
             Text("Total Utang: Rp ${widget.customer.totalDebt.toStringAsFixed(0)}", style: const TextStyle(color: Colors.red)),
             const Divider(height: 24),
             
-            // 1. Pilih Transaksi yang Mau Dibayar
+            // 1. Pilih Transaksi
             debtTxsAsync.when(
-              data: (txs) => DropdownButtonFormField<Transaction>(
-                value: _selectedTransaction,
-                hint: const Text("Pilih Transaksi... (Wajib)"),
-                decoration: const InputDecoration(border: OutlineInputBorder()),
-                items: txs.map((tx) {
-                  return DropdownMenuItem(
-                    value: tx,
-                    child: Text("${tx.transactionNumber} (Sisa: Rp ${tx.remainingDebt.toStringAsFixed(0)})"),
-                  );
-                }).toList(),
-                onChanged: (tx) {
-                  setState(() {
-                    _selectedTransaction = tx;
-                    // Auto-fill jumlah bayar
-                    _amountController.text = (tx?.remainingDebt ?? 0).toStringAsFixed(0);
-                  });
-                },
-              ),
+              data: (txs) {
+                
+                // --- PERBAIKAN DIMULAI DI SINI ---
+                // Cek apakah transaksi yang kita pilih SEKARANG
+                // masih ada di dalam list baru dari stream.
+                final bool isSelectionValid = _selectedTransaction != null &&
+                    txs.any((tx) => tx.id == _selectedTransaction!.id);
+                // --- AKHIR PERBAIKAN ---
+
+                if (txs.isEmpty && !isSelectionValid) {
+                  // Jika tidak ada transaksi DAN tidak ada yg dipilih
+                  return const Text("Pelanggan ini tidak memiliki transaksi utang aktif.");
+                }
+
+                return DropdownButtonFormField<Transaction>(
+                  // Jika seleksi sudah tidak valid (baru dibayar),
+                  // set value ke null agar tidak crash
+                  value: isSelectionValid ? _selectedTransaction : null,
+                  hint: const Text("Pilih Transaksi... (Wajib)"),
+                  decoration: const InputDecoration(border: OutlineInputBorder()),
+                  items: txs.map((tx) {
+                    return DropdownMenuItem(
+                      value: tx,
+                      child: Text(
+                          "${tx.transactionNumber} (Sisa: Rp ${tx.remainingDebt.toStringAsFixed(0)})"),
+                    );
+                  }).toList(),
+                  onChanged: (tx) {
+                    setState(() {
+                      _selectedTransaction = tx;
+                      _amountController.text =
+                          (tx?.remainingDebt ?? 0).toStringAsFixed(0);
+                    });
+                  },
+                );
+              },
               loading: () => const LinearProgressIndicator(),
-              error: (e,s) => const Text("Gagal memuat transaksi"),
+              error: (e, s) => const Text("Gagal memuat transaksi"),
             ),
             const SizedBox(height: 16),
 
@@ -116,7 +139,7 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
             TextFormField(
               controller: _amountController,
               decoration: InputDecoration(
-                labelText: "Jumlah Bayar (Maks: Rp $remainingDebt)",
+                labelText: "Jumlah Bayar (Maks: Rp ${remainingDebt.toStringAsFixed(0)})",
                 border: const OutlineInputBorder(),
                 prefixIcon: const Icon(Icons.attach_money),
               ),
@@ -128,11 +151,15 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
             // 3. Tombol Konfirmasi
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
-                onPressed: _processPayment,
-                child: const Text("Konfirmasi Pembayaran"),
-              ),
+              height: 50, // Beri tinggi agar loading indicator pas
+              child: _isLoading 
+                  ? const Center(child: CircularProgressIndicator()) // Tampilkan loading
+                  : ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+                      // 5. GUNAKAN LOGIKA 'canSubmit'
+                      onPressed: canSubmit ? _processPayment : null, 
+                      child: const Text("Konfirmasi Pembayaran"),
+                    ),
             ),
           ],
         ),

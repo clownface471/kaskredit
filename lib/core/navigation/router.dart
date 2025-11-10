@@ -14,6 +14,7 @@ import '../../features/customers/presentation/screens/edit_customer_screen.dart'
 import '../../features/customers/presentation/providers/customer_providers.dart';
 import '../../features/transactions/presentation/screens/cashier_screen.dart';
 import '../../features/payments/presentation/screens/debt_management_screen.dart';
+import '../../features/reports/presentation/screens/report_screen.dart';
 import '../../shared/models/customer.dart'; 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
@@ -136,8 +137,7 @@ GoRoute(
     // Halaman Laporan (placeholder)
     GoRoute(
       path: '/reports',
-      builder: (context, state) =>
-          const Scaffold(body: Center(child: Text("Halaman Laporan"))),
+      builder: (context, state) => const ReportScreen(),
     ),
     GoRoute(
       path: '/cashier',

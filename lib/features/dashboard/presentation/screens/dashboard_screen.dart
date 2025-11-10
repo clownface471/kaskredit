@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // Sudah ada
 import 'package:go_router/go_router.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kaskredit_1/features/auth/data/auth_repository.dart';
+// 1. IMPORT PROVIDER BARU KITA
+import 'package:kaskredit_1/features/dashboard/presentation/providers/dashboard_providers.dart';
+import 'package:kaskredit_1/shared/models/dashboard_stats.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
-Widget build(BuildContext context, WidgetRef ref){
+@override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 2. "TONTON" PROVIDER STATS
+    final statsAsync = ref.watch(dashboardStatsProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text("Kasir Mini KREDIT"),
@@ -58,36 +64,115 @@ Widget build(BuildContext context, WidgetRef ref){
         ),
       ),
       // 4. Body (Grid Menu Utama)
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              // Placeholder untuk Laporan & Info Toko
-              // (Nanti kita isi ini dengan data real)
-              const Card(
-                child: ListTile(
-                  title: Text("Laporan Hari Ini"),
-                  subtitle: Text("Total Penjualan: Rp 0"),
+ // 3. GANTI BODY DENGAN .when() UNTUK HANDLING LOADING/ERROR
+      body: statsAsync.when(
+        // === STATE SUKSES (Data Diterima) ===
+        data: (stats) {
+          // Tampilkan UI lengkap dengan data
+          return _buildDashboardUI(context, stats);
+        },
+        // === STATE ERROR ===
+        error: (err, stack) => Center(
+          child: Text("Gagal memuat data: $err"),
+        ),
+        // === STATE LOADING ===
+        loading: () {
+          // Tampilkan UI placeholder (skeleton) saat loading
+          return _buildDashboardUI(context, null); // Kirim null
+        },
+      ),
+    );
+  }
+
+  // --- Widget Baru untuk UI Dashboard ---
+  Widget _buildDashboardUI(BuildContext context, DashboardStats? stats) {
+    // Jika stats null, kita dalam mode loading, tampilkan placeholder
+    final bool isLoading = stats == null;
+
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            // --- KARTU STATISTIK HARI INI ---
+            Card(
+              elevation: 4,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Laporan Hari Ini", style: Theme.of(context).textTheme.titleLarge),
+                    const Divider(height: 20),
+                    // Gunakan widget _StatRow
+                    _StatRow(
+                      label: "Total Penjualan:",
+                      value: "Rp ${stats?.todaySales.toStringAsFixed(0) ?? '...'}",
+                      isLoading: isLoading,
+                    ),
+                    _StatRow(
+                      label: "Total Profit:",
+                      value: "Rp ${stats?.todayProfit.toStringAsFixed(0) ?? '...'}",
+                      isLoading: isLoading,
+                    ),
+                    _StatRow(
+                      label: "Transaksi:",
+                      value: "${stats?.todayTransactions ?? '...'}x",
+                      isLoading: isLoading,
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
+            ),
+            const SizedBox(height: 16),
+            
+            // --- KARTU STATISTIK UTANG & STOK ---
+            Card(
+              elevation: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                     _StatRow(
+                      label: "Total Utang Beredar:",
+                      value: "Rp ${stats?.totalOutstandingDebt.toStringAsFixed(0) ?? '...'}",
+                      valueColor: Colors.red,
+                      isLoading: isLoading,
+                    ),
+                     _StatRow(
+                      label: "Jumlah Pelanggan Berutang:",
+                      value: "${stats?.totalDebtors ?? '...'} orang",
+                      valueColor: Colors.red,
+                      isLoading: isLoading,
+                    ),
+                    const Divider(),
+                     _StatRow(
+                      label: "Produk Stok Menipis:",
+                      value: "${stats?.lowStockProducts ?? '...'} item",
+                      valueColor: Colors.orange,
+                      isLoading: isLoading,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
 
-              // GRID MENU (Sesuai saran Anda: 3 kolom)
-              GridView.count(
-                crossAxisCount: 3, // 3 Kolom untuk HP
-                shrinkWrap: true, // Agar GridView tidak scroll
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                children: [
-                  // Menu-menu ini berdasarkan screenshot
-                  _MenuCard(
-                    title: "Produk",
-                    icon: Icons.inventory_2,
-                    onTap: () => context.push('/products'),
-                  ),
-                  _MenuCard(
+            // --- GRID MENU (Tetap sama) ---
+            GridView.count(
+              crossAxisCount: 3,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              children: [
+                _MenuCard(
+                  title: "Produk",
+                  icon: Icons.inventory_2,
+                  onTap: () => context.push('/products'),
+                ),
+                // ... (Semua _MenuCard Anda yang lain) ...
+                _MenuCard(
                     title: "Riwayat Bayar",
                     icon: Icons.receipt_long,
                     onTap: () {},
@@ -108,14 +193,14 @@ Widget build(BuildContext context, WidgetRef ref){
                     onTap: () => context.push('/debt'),
                   ),
                   _MenuCard(
-                    title: "Pengeluaran",
-                    icon: Icons.payment,
-                    onTap: () {},
-                  ),
-                  _MenuCard(
                     title: "Laporan",
                     icon: Icons.assessment,
                     onTap: () => context.push('/reports'),
+                  ),
+                  _MenuCard(
+                    title: "Pengeluaran",
+                    icon: Icons.payment,
+                    onTap: () {},
                   ),
                   _MenuCard(
                     title: "Cetak Resi",
@@ -132,18 +217,18 @@ Widget build(BuildContext context, WidgetRef ref){
                     icon: Icons.settings,
                     onTap: () {},
                   ),
-                ],
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-// Widget helper untuk kartu menu
+// --- Widget Helper untuk Kartu Menu (Tetap sama) ---
 class _MenuCard extends StatelessWidget {
+  // ... (kode _MenuCard Anda sama)
   final String title;
   final IconData icon;
   final VoidCallback onTap;
@@ -172,6 +257,49 @@ class _MenuCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// --- Widget Helper Baru untuk Baris Statistik ---
+class _StatRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color? valueColor;
+  final bool isLoading;
+
+  const _StatRow({
+    required this.label,
+    required this.value,
+    this.valueColor,
+    this.isLoading = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 16)),
+          if (isLoading)
+            Container( // Skeleton placeholder
+              width: 80,
+              height: 16,
+              color: Colors.grey[300],
+            )
+          else
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: valueColor,
+              ),
+            ),
+        ],
       ),
     );
   }
