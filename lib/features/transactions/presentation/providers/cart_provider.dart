@@ -74,8 +74,15 @@ class Cart extends Notifier<CartState> {
 
   void setPaymentType(PaymentType type) {
     if (type == PaymentType.CASH) {
-      // Jika tunai, hapus pelanggan
-      state = state.copyWith(paymentType: type, selectedCustomer: null, dueDate: null);
+      // Jika tunai, reset semua info kredit
+      state = state.copyWith(
+        paymentType: type, 
+        selectedCustomer: null, 
+        dueDate: null,
+        downPayment: 0.0,
+        interestRate: 0.0,
+        tenor: 0,
+      );
     } else {
       state = state.copyWith(paymentType: type);
     }
@@ -87,6 +94,21 @@ class Cart extends Notifier<CartState> {
   
   void setNotes(String notes) {
     state = state.copyWith(notes: notes);
+  }
+
+  void setDownPayment(String value) {
+    final dp = double.tryParse(value) ?? 0.0;
+    state = state.copyWith(downPayment: dp);
+  }
+  
+  void setInterestRate(String value) {
+    final rate = double.tryParse(value) ?? 0.0;
+    state = state.copyWith(interestRate: rate);
+  }
+  
+  void setTenor(String value) {
+    final months = int.tryParse(value) ?? 0;
+    state = state.copyWith(tenor: months);
   }
 
   void clear() {

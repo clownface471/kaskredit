@@ -186,7 +186,11 @@ mixin _$CartState {
   PaymentType get paymentType => throw _privateConstructorUsedError;
   Customer? get selectedCustomer => throw _privateConstructorUsedError;
   DateTime? get dueDate => throw _privateConstructorUsedError;
-  String? get notes => throw _privateConstructorUsedError;
+  String? get notes =>
+      throw _privateConstructorUsedError; // --- TAMBAHKAN FIELD KREDIT DI SINI ---
+  double get downPayment => throw _privateConstructorUsedError;
+  double get interestRate => throw _privateConstructorUsedError;
+  int get tenor => throw _privateConstructorUsedError;
 
   /// Create a copy of CartState
   /// with the given fields replaced by the non-null parameter values.
@@ -206,6 +210,9 @@ abstract class $CartStateCopyWith<$Res> {
     Customer? selectedCustomer,
     DateTime? dueDate,
     String? notes,
+    double downPayment,
+    double interestRate,
+    int tenor,
   });
 
   $CustomerCopyWith<$Res>? get selectedCustomer;
@@ -231,6 +238,9 @@ class _$CartStateCopyWithImpl<$Res, $Val extends CartState>
     Object? selectedCustomer = freezed,
     Object? dueDate = freezed,
     Object? notes = freezed,
+    Object? downPayment = null,
+    Object? interestRate = null,
+    Object? tenor = null,
   }) {
     return _then(
       _value.copyWith(
@@ -254,6 +264,18 @@ class _$CartStateCopyWithImpl<$Res, $Val extends CartState>
                 ? _value.notes
                 : notes // ignore: cast_nullable_to_non_nullable
                       as String?,
+            downPayment: null == downPayment
+                ? _value.downPayment
+                : downPayment // ignore: cast_nullable_to_non_nullable
+                      as double,
+            interestRate: null == interestRate
+                ? _value.interestRate
+                : interestRate // ignore: cast_nullable_to_non_nullable
+                      as double,
+            tenor: null == tenor
+                ? _value.tenor
+                : tenor // ignore: cast_nullable_to_non_nullable
+                      as int,
           )
           as $Val,
     );
@@ -289,6 +311,9 @@ abstract class _$$CartStateImplCopyWith<$Res>
     Customer? selectedCustomer,
     DateTime? dueDate,
     String? notes,
+    double downPayment,
+    double interestRate,
+    int tenor,
   });
 
   @override
@@ -314,6 +339,9 @@ class __$$CartStateImplCopyWithImpl<$Res>
     Object? selectedCustomer = freezed,
     Object? dueDate = freezed,
     Object? notes = freezed,
+    Object? downPayment = null,
+    Object? interestRate = null,
+    Object? tenor = null,
   }) {
     return _then(
       _$CartStateImpl(
@@ -337,6 +365,18 @@ class __$$CartStateImplCopyWithImpl<$Res>
             ? _value.notes
             : notes // ignore: cast_nullable_to_non_nullable
                   as String?,
+        downPayment: null == downPayment
+            ? _value.downPayment
+            : downPayment // ignore: cast_nullable_to_non_nullable
+                  as double,
+        interestRate: null == interestRate
+            ? _value.interestRate
+            : interestRate // ignore: cast_nullable_to_non_nullable
+                  as double,
+        tenor: null == tenor
+            ? _value.tenor
+            : tenor // ignore: cast_nullable_to_non_nullable
+                  as int,
       ),
     );
   }
@@ -351,6 +391,9 @@ class _$CartStateImpl extends _CartState {
     this.selectedCustomer,
     this.dueDate,
     this.notes,
+    this.downPayment = 0.0,
+    this.interestRate = 0.0,
+    this.tenor = 0,
   }) : _items = items,
        super._();
 
@@ -372,10 +415,20 @@ class _$CartStateImpl extends _CartState {
   final DateTime? dueDate;
   @override
   final String? notes;
+  // --- TAMBAHKAN FIELD KREDIT DI SINI ---
+  @override
+  @JsonKey()
+  final double downPayment;
+  @override
+  @JsonKey()
+  final double interestRate;
+  @override
+  @JsonKey()
+  final int tenor;
 
   @override
   String toString() {
-    return 'CartState(items: $items, paymentType: $paymentType, selectedCustomer: $selectedCustomer, dueDate: $dueDate, notes: $notes)';
+    return 'CartState(items: $items, paymentType: $paymentType, selectedCustomer: $selectedCustomer, dueDate: $dueDate, notes: $notes, downPayment: $downPayment, interestRate: $interestRate, tenor: $tenor)';
   }
 
   @override
@@ -389,7 +442,12 @@ class _$CartStateImpl extends _CartState {
             (identical(other.selectedCustomer, selectedCustomer) ||
                 other.selectedCustomer == selectedCustomer) &&
             (identical(other.dueDate, dueDate) || other.dueDate == dueDate) &&
-            (identical(other.notes, notes) || other.notes == notes));
+            (identical(other.notes, notes) || other.notes == notes) &&
+            (identical(other.downPayment, downPayment) ||
+                other.downPayment == downPayment) &&
+            (identical(other.interestRate, interestRate) ||
+                other.interestRate == interestRate) &&
+            (identical(other.tenor, tenor) || other.tenor == tenor));
   }
 
   @override
@@ -400,6 +458,9 @@ class _$CartStateImpl extends _CartState {
     selectedCustomer,
     dueDate,
     notes,
+    downPayment,
+    interestRate,
+    tenor,
   );
 
   /// Create a copy of CartState
@@ -418,6 +479,9 @@ abstract class _CartState extends CartState {
     final Customer? selectedCustomer,
     final DateTime? dueDate,
     final String? notes,
+    final double downPayment,
+    final double interestRate,
+    final int tenor,
   }) = _$CartStateImpl;
   const _CartState._() : super._();
 
@@ -430,7 +494,13 @@ abstract class _CartState extends CartState {
   @override
   DateTime? get dueDate;
   @override
-  String? get notes;
+  String? get notes; // --- TAMBAHKAN FIELD KREDIT DI SINI ---
+  @override
+  double get downPayment;
+  @override
+  double get interestRate;
+  @override
+  int get tenor;
 
   /// Create a copy of CartState
   /// with the given fields replaced by the non-null parameter values.

@@ -9,6 +9,8 @@ import 'package:kaskredit_1/shared/models/product.dart';
 import 'package:kaskredit_1/shared/models/transaction.dart';
 import 'package:kaskredit_1/features/transactions/data/transaction_repository.dart';
 import 'package:kaskredit_1/features/auth/presentation/providers/auth_providers.dart';
+import 'package:flutter/services.dart';
+import 'package:kaskredit_1/core/utils/formatters.dart';
 
 class CashierScreen extends ConsumerStatefulWidget {
   const CashierScreen({super.key});
@@ -152,22 +154,24 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
       margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
+        // Ubah jadi ListView agar bisa di-scroll saat keyboard muncul
+        child: ListView(
+          shrinkWrap: true, // Agar pas dengan konten
           children: [
-            // Total
+            // --- 1. Total ---
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text("TOTAL", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 Text(
-                  "Rp ${cartState.totalAmount.toStringAsFixed(0)}",
+                  Formatters.currency.format(cartState.totalAmount),
                   style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blue),
                 ),
               ],
             ),
             const Divider(height: 24),
             
-            // Tipe Pembayaran (Sesuai blueprint [cite: 331-333])
+            // --- 2. Tipe Pembayaran ---
             Row(
               children: [
                 const Text("Bayar:"),
@@ -186,13 +190,56 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
               ],
             ),
             
-            // Pilihan Pelanggan (jika kredit)
-            if (cartState.paymentType == PaymentType.CREDIT)
-              _buildCustomerSelector(), // Buat jadi widget terpisah
+            // --- 3. FORM KREDIT (Baru) ---
+            // Muncul jika tipe-nya KREDIT
+            if (cartState.paymentType == PaymentType.CREDIT) ...[
+              const SizedBox(height: 16),
+              _buildCustomerSelector(), // Pilihan Pelanggan
+              const SizedBox(height: 16),
+              // Form DP, Bunga, Tenor
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      decoration: const InputDecoration(labelText: "DP (Rp)", border: OutlineInputBorder()),
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      onChanged: (value) => ref.read(cartProvider.notifier).setDownPayment(value),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextFormField(
+                      decoration: const InputDecoration(labelText: "Bunga (%)", border: OutlineInputBorder()),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      onChanged: (value) => ref.read(cartProvider.notifier).setInterestRate(value),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextFormField(
+                      decoration: const InputDecoration(labelText: "Tenor (Bln)", border: OutlineInputBorder()),
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      onChanged: (value) => ref.read(cartProvider.notifier).setTenor(value),
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(height: 24),
+              // Info Kalkulasi
+              _InfoRow(label: "Total + Bunga:", value: Formatters.currency.format(cartState.totalWithInterest)),
+              _InfoRow(label: "Sisa Utang:", value: Formatters.currency.format(cartState.remainingDebt)),
+              _InfoRow(
+                label: "Cicilan / Bulan:",
+                value: Formatters.currency.format(cartState.monthlyInstallment),
+                isBold: true,
+              ),
+            ],
             
             const SizedBox(height: 16),
             
-            // Tombol Checkout
+            // --- 4. Tombol Checkout ---
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -201,7 +248,6 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                   backgroundColor: Colors.green,
                   foregroundColor: Colors.white
                 ),
-                // (Disable jika keranjang kosong ATAU jika kredit tapi pelanggan blm dipilih)
                 onPressed: (cartState.items.isEmpty || (cartState.paymentType == PaymentType.CREDIT && cartState.selectedCustomer == null))
                   ? null 
                   : _checkout,
@@ -324,4 +370,25 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
       // if (mounted) setState(() => _isLoading = false);
     }
   }
+  Widget _InfoRow({required String label, required String value, bool isBold = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 15)),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+              color: isBold ? Colors.blue : Colors.black87,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
 }

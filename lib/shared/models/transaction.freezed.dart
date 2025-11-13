@@ -34,6 +34,12 @@ mixin _$Transaction {
   double get totalProfit => throw _privateConstructorUsedError;
   PaymentStatus get paymentStatus => throw _privateConstructorUsedError;
   PaymentType get paymentType => throw _privateConstructorUsedError;
+  double get downPayment =>
+      throw _privateConstructorUsedError; // Uang Muka (DP)
+  double get interestRate =>
+      throw _privateConstructorUsedError; // Bunga (misal: 10 untuk 10%)
+  int get tenor =>
+      throw _privateConstructorUsedError; // Jangka waktu (misal: 3 untuk 3 bulan)
   double get paidAmount => throw _privateConstructorUsedError;
   double get remainingDebt => throw _privateConstructorUsedError;
   @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
@@ -77,6 +83,9 @@ abstract class $TransactionCopyWith<$Res> {
     double totalProfit,
     PaymentStatus paymentStatus,
     PaymentType paymentType,
+    double downPayment,
+    double interestRate,
+    int tenor,
     double paidAmount,
     double remainingDebt,
     @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
@@ -119,6 +128,9 @@ class _$TransactionCopyWithImpl<$Res, $Val extends Transaction>
     Object? totalProfit = null,
     Object? paymentStatus = null,
     Object? paymentType = null,
+    Object? downPayment = null,
+    Object? interestRate = null,
+    Object? tenor = null,
     Object? paidAmount = null,
     Object? remainingDebt = null,
     Object? transactionDate = null,
@@ -169,6 +181,18 @@ class _$TransactionCopyWithImpl<$Res, $Val extends Transaction>
                 ? _value.paymentType
                 : paymentType // ignore: cast_nullable_to_non_nullable
                       as PaymentType,
+            downPayment: null == downPayment
+                ? _value.downPayment
+                : downPayment // ignore: cast_nullable_to_non_nullable
+                      as double,
+            interestRate: null == interestRate
+                ? _value.interestRate
+                : interestRate // ignore: cast_nullable_to_non_nullable
+                      as double,
+            tenor: null == tenor
+                ? _value.tenor
+                : tenor // ignore: cast_nullable_to_non_nullable
+                      as int,
             paidAmount: null == paidAmount
                 ? _value.paidAmount
                 : paidAmount // ignore: cast_nullable_to_non_nullable
@@ -223,6 +247,9 @@ abstract class _$$TransactionImplCopyWith<$Res>
     double totalProfit,
     PaymentStatus paymentStatus,
     PaymentType paymentType,
+    double downPayment,
+    double interestRate,
+    int tenor,
     double paidAmount,
     double remainingDebt,
     @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
@@ -264,6 +291,9 @@ class __$$TransactionImplCopyWithImpl<$Res>
     Object? totalProfit = null,
     Object? paymentStatus = null,
     Object? paymentType = null,
+    Object? downPayment = null,
+    Object? interestRate = null,
+    Object? tenor = null,
     Object? paidAmount = null,
     Object? remainingDebt = null,
     Object? transactionDate = null,
@@ -314,6 +344,18 @@ class __$$TransactionImplCopyWithImpl<$Res>
             ? _value.paymentType
             : paymentType // ignore: cast_nullable_to_non_nullable
                   as PaymentType,
+        downPayment: null == downPayment
+            ? _value.downPayment
+            : downPayment // ignore: cast_nullable_to_non_nullable
+                  as double,
+        interestRate: null == interestRate
+            ? _value.interestRate
+            : interestRate // ignore: cast_nullable_to_non_nullable
+                  as double,
+        tenor: null == tenor
+            ? _value.tenor
+            : tenor // ignore: cast_nullable_to_non_nullable
+                  as int,
         paidAmount: null == paidAmount
             ? _value.paidAmount
             : paidAmount // ignore: cast_nullable_to_non_nullable
@@ -361,6 +403,9 @@ class _$TransactionImpl implements _Transaction {
     required this.totalProfit,
     required this.paymentStatus,
     required this.paymentType,
+    this.downPayment = 0.0,
+    this.interestRate = 0.0,
+    this.tenor = 0,
     this.paidAmount = 0.0,
     this.remainingDebt = 0.0,
     @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
@@ -412,6 +457,18 @@ class _$TransactionImpl implements _Transaction {
   final PaymentType paymentType;
   @override
   @JsonKey()
+  final double downPayment;
+  // Uang Muka (DP)
+  @override
+  @JsonKey()
+  final double interestRate;
+  // Bunga (misal: 10 untuk 10%)
+  @override
+  @JsonKey()
+  final int tenor;
+  // Jangka waktu (misal: 3 untuk 3 bulan)
+  @override
+  @JsonKey()
   final double paidAmount;
   @override
   @JsonKey()
@@ -437,7 +494,7 @@ class _$TransactionImpl implements _Transaction {
 
   @override
   String toString() {
-    return 'Transaction(id: $id, userId: $userId, transactionNumber: $transactionNumber, customerId: $customerId, customerName: $customerName, items: $items, totalAmount: $totalAmount, totalProfit: $totalProfit, paymentStatus: $paymentStatus, paymentType: $paymentType, paidAmount: $paidAmount, remainingDebt: $remainingDebt, transactionDate: $transactionDate, dueDate: $dueDate, notes: $notes, createdAt: $createdAt, updatedAt: $updatedAt)';
+    return 'Transaction(id: $id, userId: $userId, transactionNumber: $transactionNumber, customerId: $customerId, customerName: $customerName, items: $items, totalAmount: $totalAmount, totalProfit: $totalProfit, paymentStatus: $paymentStatus, paymentType: $paymentType, downPayment: $downPayment, interestRate: $interestRate, tenor: $tenor, paidAmount: $paidAmount, remainingDebt: $remainingDebt, transactionDate: $transactionDate, dueDate: $dueDate, notes: $notes, createdAt: $createdAt, updatedAt: $updatedAt)';
   }
 
   @override
@@ -462,6 +519,11 @@ class _$TransactionImpl implements _Transaction {
                 other.paymentStatus == paymentStatus) &&
             (identical(other.paymentType, paymentType) ||
                 other.paymentType == paymentType) &&
+            (identical(other.downPayment, downPayment) ||
+                other.downPayment == downPayment) &&
+            (identical(other.interestRate, interestRate) ||
+                other.interestRate == interestRate) &&
+            (identical(other.tenor, tenor) || other.tenor == tenor) &&
             (identical(other.paidAmount, paidAmount) ||
                 other.paidAmount == paidAmount) &&
             (identical(other.remainingDebt, remainingDebt) ||
@@ -478,7 +540,7 @@ class _$TransactionImpl implements _Transaction {
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     runtimeType,
     id,
     userId,
@@ -490,6 +552,9 @@ class _$TransactionImpl implements _Transaction {
     totalProfit,
     paymentStatus,
     paymentType,
+    downPayment,
+    interestRate,
+    tenor,
     paidAmount,
     remainingDebt,
     transactionDate,
@@ -497,7 +562,7 @@ class _$TransactionImpl implements _Transaction {
     notes,
     createdAt,
     updatedAt,
-  );
+  ]);
 
   /// Create a copy of Transaction
   /// with the given fields replaced by the non-null parameter values.
@@ -525,6 +590,9 @@ abstract class _Transaction implements Transaction {
     required final double totalProfit,
     required final PaymentStatus paymentStatus,
     required final PaymentType paymentType,
+    final double downPayment,
+    final double interestRate,
+    final int tenor,
     final double paidAmount,
     final double remainingDebt,
     @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
@@ -565,6 +633,12 @@ abstract class _Transaction implements Transaction {
   PaymentStatus get paymentStatus;
   @override
   PaymentType get paymentType;
+  @override
+  double get downPayment; // Uang Muka (DP)
+  @override
+  double get interestRate; // Bunga (misal: 10 untuk 10%)
+  @override
+  int get tenor; // Jangka waktu (misal: 3 untuk 3 bulan)
   @override
   double get paidAmount;
   @override

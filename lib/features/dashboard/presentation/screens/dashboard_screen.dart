@@ -1,62 +1,43 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'; // Sudah ada
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kaskredit_1/features/auth/data/auth_repository.dart';
-// 1. IMPORT PROVIDER BARU KITA
 import 'package:kaskredit_1/features/dashboard/presentation/providers/dashboard_providers.dart';
 import 'package:kaskredit_1/shared/models/dashboard_stats.dart';
-import 'package:kaskredit_1/core/utils/formatters.dart';
+import 'package:kaskredit_1/core/utils/formatters.dart'; // Kita butuh formatter
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
-@override
+  @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 2. "TONTON" PROVIDER STATS
     final statsAsync = ref.watch(dashboardStatsProvider);
+    // Ambil info user (nanti kita pakai)
+    // final user = ref.watch(currentUserProvider).value;
+
     return Scaffold(
+      // 1. AppBar (Sesuai Video)
       appBar: AppBar(
         title: const Text("Kasir Mini KREDIT"),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () {
-              // 4. PANGGIL FUNGSI SIGNOUT
-              ref.read(authRepositoryProvider).signOut();
-            },
+            onPressed: () => ref.read(authRepositoryProvider).signOut(),
           )
         ],
       ),
-      // 2. Drawer (untuk Profil, dll - Sesuai PDF)
-      drawer: Drawer(
-        child: ListView(
-          children: [
-            const UserAccountsDrawerHeader(
-              accountName: Text("Toko Kredit"), // Nanti ambil dari user
-              accountEmail: Text("email@toko.com"), // Nanti ambil dari user
-            ),
-            ListTile(
-              leading: const Icon(Icons.logout),
-              title: const Text("Logout"),
-              onTap: () {
-                // Nanti panggil signOut()
-              },
-            ),
-          ],
-        ),
-      ),
-      // 3. Tombol Transaksi Besar di Bawah (Sesuai Video)
+      
+      // 2. Tombol Transaksi (Sesuai Video)
       bottomNavigationBar: BottomAppBar(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
+              backgroundColor: Colors.grey[800], // Warna gelap
+              foregroundColor: Colors.white,
             ),
-            onPressed: () {
-              // Nanti ke halaman kasir
-              context.push('/cashier');
-            },
+            onPressed: () => context.push('/cashier'),
             child: const Text(
               "Transaksi",
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -64,160 +45,66 @@ class DashboardScreen extends ConsumerWidget {
           ),
         ),
       ),
-      // 4. Body (Grid Menu Utama)
- // 3. GANTI BODY DENGAN .when() UNTUK HANDLING LOADING/ERROR
+
+      // 3. Body (Semua kartu dan grid)
       body: statsAsync.when(
-        // === STATE SUKSES (Data Diterima) ===
-        data: (stats) {
-          // Tampilkan UI lengkap dengan data
-          return _buildDashboardUI(context, stats);
-        },
-        // === STATE ERROR ===
+        data: (stats) => _buildDashboardUI(context, stats, false), // false = not loading
         error: (err, stack) => Center(
-          child: Text("Gagal memuat data: $err"),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text("Gagal memuat data: $err"),
+          ),
         ),
-        // === STATE LOADING ===
-        loading: () {
-          // Tampilkan UI placeholder (skeleton) saat loading
-          return _buildDashboardUI(context, null); // Kirim null
-        },
+        loading: () => _buildDashboardUI(context, null, true), // true = loading
       ),
     );
   }
 
-  // --- Widget Baru untuk UI Dashboard ---
-  Widget _buildDashboardUI(BuildContext context, DashboardStats? stats) {
-    // Jika stats null, kita dalam mode loading, tampilkan placeholder
-    final bool isLoading = stats == null;
-
+  // --- WIDGET UTAMA UNTUK BODY ---
+  Widget _buildDashboardUI(BuildContext context, DashboardStats? stats, bool isLoading) {
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // --- KARTU STATISTIK HARI INI ---
-            Card(
-              elevation: 4,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("Laporan Hari Ini", style: Theme.of(context).textTheme.titleLarge),
-                    const Divider(height: 20),
-                    // Gunakan widget _StatRow
-                    _StatRow(
-                      label: "Total Penjualan:",
-                      value: isLoading ? "..." : Formatters.currency.format(stats.todaySales),
-                      isLoading: isLoading,
-                    ),
-                    _StatRow(
-                      label: "Total Profit:",
-                      value: isLoading ? "..." : Formatters.currency.format(stats.todayProfit),
-                      isLoading: isLoading,
-                    ),
-                    _StatRow(
-                      label: "Transaksi:",
-                      value: isLoading ? "..." : "${stats.todayTransactions}x",
-                      isLoading: isLoading,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
+            // 1. KARTU LAPORAN HARI INI (Sesuai Video)
+            _LaporanHariIniCard(stats: stats, isLoading: isLoading),
             
-            // --- KARTU STATISTIK UTANG & STOK ---
-            Card(
-              elevation: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                     _StatRow(
-                      label: "Total Utang Beredar:",
-                      value: "Rp ${stats?.totalOutstandingDebt.toStringAsFixed(0) ?? '...'}",
-                      valueColor: Colors.red,
-                      isLoading: isLoading,
-                    ),
-                     _StatRow(
-                      label: "Jumlah Pelanggan Berutang:",
-                      value: "${stats?.totalDebtors ?? '...'} orang",
-                      valueColor: Colors.red,
-                      isLoading: isLoading,
-                    ),
-                    const Divider(),
-                     _StatRow(
-                      label: "Produk Stok Menipis:",
-                      value: "${stats?.lowStockProducts ?? '...'} item",
-                      valueColor: Colors.orange,
-                      isLoading: isLoading,
-                    ),
-                  ],
-                ),
-              ),
+            const SizedBox(height: 16),
+
+            // 2. KARTU INFO TOKO (Sesuai Video)
+            _InfoTokoCard(
+              namaToko: "Toko Kredit Anda", // Nanti pakai: user?.shopName
+              alamat: "Jalan Teracota No.17", // Nanti pakai: user?.address
             ),
+            
+            const SizedBox(height: 16),
+
+            // 3. BOKS JATUH TEMPO (Sesuai Video)
+            _JatuhTempoRow(
+              jatuhTempoHariIni: 2, // Nanti pakai data
+              lewatJatuhTempo: 6, // Nanti pakai data
+            ),
+
             const SizedBox(height: 24),
 
-            // --- GRID MENU (Tetap sama) ---
+            // 4. GRID MENU (Sesuai Video)
             GridView.count(
-              crossAxisCount: 3,
+              crossAxisCount: 3, // 3 kolom di HP
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               crossAxisSpacing: 10,
               mainAxisSpacing: 10,
               children: [
-                _MenuCard(
-                  title: "Produk",
-                  icon: Icons.inventory_2,
-                  onTap: () => context.push('/products'),
-                ),
-                // ... (Semua _MenuCard Anda yang lain) ...
-                _MenuCard(
-                    title: "Riwayat Bayar",
-                    icon: Icons.receipt_long,
-                    onTap: () {},
-                  ),
-                  _MenuCard(
-                    title: "Riwayat Transaksi",
-                    icon: Icons.history,
-                    onTap: () {},
-                  ),
-                  _MenuCard(
-                    title: "Pelanggan",
-                    icon: Icons.people,
-                    onTap: () => context.push('/customers'),
-                  ),
-                  _MenuCard(
-                    title: "Bayar Utang",
-                    icon: Icons.monetization_on,
-                    onTap: () => context.push('/debt'),
-                  ),
-                  _MenuCard(
-                    title: "Laporan",
-                    icon: Icons.assessment,
-                    onTap: () => context.push('/reports'),
-                  ),
-                  _MenuCard(
-                    title: "Pengeluaran",
-                    icon: Icons.payment,
-                    onTap: () {},
-                  ),
-                  _MenuCard(
-                    title: "Cetak Resi",
-                    icon: Icons.print,
-                    onTap: () {},
-                  ),
-                  _MenuCard(
-                    title: "Kasir",
-                    icon: Icons.person_pin,
-                    onTap: () {},
-                  ),
-                  _MenuCard(
-                    title: "Pengaturan",
-                    icon: Icons.settings,
-                    onTap: () {},
-                  ),
+                _MenuCard(title: "Produk", icon: Icons.inventory_2, onTap: () => context.push('/products')),
+                _MenuCard(title: "Riwayat Bayar", icon: Icons.receipt_long, onTap: () {}),
+                _MenuCard(title: "Riwayat Transaksi", icon: Icons.history, onTap: () {}),
+                _MenuCard(title: "Pelanggan", icon: Icons.people, onTap: () => context.push('/customers')),
+                _MenuCard(title: "Bayar Utang", icon: Icons.monetization_on, onTap: () => context.push('/debt')),
+                _MenuCard(title: "Laporan", icon: Icons.assessment, onTap: () => context.push('/reports')),
+                _MenuCard(title: "Pengeluaran", icon: Icons.payment, onTap: () {}),
+                _MenuCard(title: "Kasir", icon: Icons.person_pin, onTap: () {}),
+                _MenuCard(title: "Pengaturan", icon: Icons.settings, onTap: () {}),
               ],
             ),
           ],
@@ -227,25 +114,147 @@ class DashboardScreen extends ConsumerWidget {
   }
 }
 
-// --- Widget Helper untuk Kartu Menu (Tetap sama) ---
-class _MenuCard extends StatelessWidget {
-  // ... (kode _MenuCard Anda sama)
-  final String title;
-  final IconData icon;
-  final VoidCallback onTap;
+// --- HELPER WIDGETS BARU UNTUK DASHBOARD ---
 
-  const _MenuCard({
-    required this.title,
-    required this.icon,
-    required this.onTap,
-  });
+// 1. KARTU LAPORAN HARI INI
+class _LaporanHariIniCard extends StatelessWidget {
+  final DashboardStats? stats;
+  final bool isLoading;
+  const _LaporanHariIniCard({this.stats, required this.isLoading});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      color: Colors.grey[800], // Latar belakang gelap
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Laporan Hari Ini", style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white)),
+            const SizedBox(height: 12),
+            _StatRow(
+              label: "Total Penjualan",
+              value: isLoading ? "..." : Formatters.currency.format(stats!.todaySales),
+              color: Colors.white,
+            ),
+            const SizedBox(height: 4),
+            _StatRow(
+              label: "Total Profit",
+              value: isLoading ? "..." : Formatters.currency.format(stats!.todayProfit),
+              color: Colors.white,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// 2. KARTU INFO TOKO
+class _InfoTokoCard extends StatelessWidget {
+  final String namaToko;
+  final String alamat;
+  const _InfoTokoCard({required this.namaToko, required this.alamat});
 
   @override
   Widget build(BuildContext context) {
     return Card(
       elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            const Icon(Icons.store, size: 40, color: Colors.blue),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(namaToko, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  Text(alamat, style: Theme.of(context).textTheme.bodyMedium),
+                ],
+              ),
+            ),
+            IconButton(icon: const Icon(Icons.edit, color: Colors.grey), onPressed: () {}),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// 3. ROW JATUH TEMPO
+class _JatuhTempoRow extends StatelessWidget {
+  final int jatuhTempoHariIni;
+  final int lewatJatuhTempo;
+  const _JatuhTempoRow({required this.jatuhTempoHariIni, required this.lewatJatuhTempo});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(child: _JatuhTempoCard(title: "Jatuh Tempo Hari Ini", count: jatuhTempoHariIni, color: Colors.orange)),
+        const SizedBox(width: 16),
+        Expanded(child: _JatuhTempoCard(title: "Lewat Jatuh Tempo", count: lewatJatuhTempo, color: Colors.red)),
+      ],
+    );
+  }
+}
+
+class _JatuhTempoCard extends StatelessWidget {
+  final String title;
+  final int count;
+  final Color color;
+  const _JatuhTempoCard({required this.title, required this.count, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      color: color.withOpacity(0.1),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(count.toString(), style: Theme.of(context).textTheme.titleLarge?.copyWith(color: color, fontWeight: FontWeight.bold)),
+                  Text(title, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.black87), maxLines: 2),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios, size: 16, color: color),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// 4. KARTU MENU (STYLING DISESUAIKAN)
+class _MenuCard extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _MenuCard({required this.title, required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -263,41 +272,44 @@ class _MenuCard extends StatelessWidget {
   }
 }
 
-// --- Widget Helper Baru untuk Baris Statistik ---
+// HELPER STAT ROW (DARI LANGKAH SEBELUMNYA, DIPINDAHKAN KE SINI)
 class _StatRow extends StatelessWidget {
   final String label;
   final String value;
-  final Color? valueColor;
+  final Color? color;
   final bool isLoading;
 
   const _StatRow({
     required this.label,
     required this.value,
-    this.valueColor,
+    this.color,
     this.isLoading = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      padding: const EdgeInsets.symmetric(vertical: 2.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 16)),
+          Text(label, style: TextStyle(fontSize: 15, color: color ?? Colors.white70)),
           if (isLoading)
-            Container( // Skeleton placeholder
+            Container(
               width: 80,
               height: 16,
-              color: Colors.grey[300],
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(4)
+              ),
             )
           else
             Text(
               value,
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 15,
                 fontWeight: FontWeight.bold,
-                color: valueColor,
+                color: color ?? Colors.white,
               ),
             ),
         ],

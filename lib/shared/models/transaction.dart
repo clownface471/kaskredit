@@ -42,6 +42,10 @@ class Transaction with _$Transaction {
     
     required PaymentStatus paymentStatus,
     required PaymentType paymentType,
+
+    @Default(0.0) double downPayment,  // Uang Muka (DP)
+    @Default(0.0) double interestRate, // Bunga (misal: 10 untuk 10%)
+    @Default(0) int tenor,             // Jangka waktu (misal: 3 untuk 3 bulan)
     
     @Default(0.0) double paidAmount,
     @Default(0.0) double remainingDebt,

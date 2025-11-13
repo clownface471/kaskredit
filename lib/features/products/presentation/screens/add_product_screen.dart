@@ -22,6 +22,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
   final _capitalPriceController = TextEditingController();
   final _sellingPriceController = TextEditingController();
   final _stockController = TextEditingController();
+  final _categoryController = TextEditingController();
 
   @override
   void dispose() {
@@ -29,6 +30,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     _capitalPriceController.dispose();
     _sellingPriceController.dispose();
     _stockController.dispose();
+    _categoryController.dispose();
     super.dispose();
   }
 
@@ -50,13 +52,13 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     setState(() { _isLoading = true; });
 
     try {
-      // 3. Buat objek Product baru
       final newProduct = Product(
         userId: userId,
         name: _nameController.text,
         capitalPrice: double.tryParse(_capitalPriceController.text) ?? 0.0,
         sellingPrice: double.tryParse(_sellingPriceController.text) ?? 0.0,
         stock: int.tryParse(_stockController.text) ?? 0,
+        category: _categoryController.text.isNotEmpty ? _categoryController.text : null, // <-- TAMBAHKAN INI
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
@@ -117,6 +119,14 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                   : null,
             ),
             const SizedBox(height: 16),
+            TextFormField(
+              controller: _categoryController,
+              decoration: const InputDecoration(
+                labelText: "Kategori (Opsional)",
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.category),
+              ),
+            ),
             // Harga Modal
             TextFormField(
               controller: _capitalPriceController,

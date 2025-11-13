@@ -27,6 +27,7 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
   final _capitalPriceController = TextEditingController();
   final _sellingPriceController = TextEditingController();
   final _stockController = TextEditingController();
+  late final TextEditingController _categoryController;
 
   // 5. TAMBAHKAN initState UNTUK MENGISI FORM
   @override
@@ -37,6 +38,7 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
     _capitalPriceController.text = widget.product.capitalPrice.toStringAsFixed(0);
     _sellingPriceController.text = widget.product.sellingPrice.toStringAsFixed(0);
     _stockController.text = widget.product.stock.toString();
+    _categoryController = TextEditingController(text: widget.product.category);
   }
 
   @override
@@ -45,6 +47,7 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
     _capitalPriceController.dispose();
     _sellingPriceController.dispose();
     _stockController.dispose();
+    _categoryController.dispose();
     super.dispose();
   }
 
@@ -59,14 +62,13 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
     setState(() { _isLoading = true; });
 
     try {
-      // Buat objek produk yang sudah diupdate
-      // Kita pakai .copyWith() dari produk yang ada
       final updatedProduct = widget.product.copyWith(
         name: _nameController.text,
         capitalPrice: double.tryParse(_capitalPriceController.text) ?? 0.0,
         sellingPrice: double.tryParse(_sellingPriceController.text) ?? 0.0,
         stock: int.tryParse(_stockController.text) ?? 0,
-        updatedAt: DateTime.now(), // Perbarui tanggal update
+        category: _categoryController.text.isNotEmpty ? _categoryController.text : null, // <-- TAMBAHKAN INI
+        updatedAt: DateTime.now(),
       );
 
       // Panggil repository untuk UPDATE
@@ -182,6 +184,17 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
                   ? "Nama produk tidak boleh kosong"
                   : null,
             ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _categoryController,
+              decoration: const InputDecoration(
+                labelText: "Kategori (Opsional)",
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.category),
+              ),
+            ),
+            // --- AKHIR TAMBAHAN ---
+            
             const SizedBox(height: 16),
             // Harga Modal
             TextFormField(

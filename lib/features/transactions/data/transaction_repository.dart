@@ -23,7 +23,7 @@ class TransactionRepository {
   // --- FUNGSI CREATE TRANSACTION (Sudah ada) ---
   Future<void> createTransaction(CartState cart, String userId) async {
     // ... (kode createTransaction Anda yang sudah berfungsi)
-    final transactionNumber = await _generateTransactionNumber();
+    final transactionNumber = await _generateTransactionNumber(userId);
     final batch = _firestore.batch();
     final transactionRef = _transactionsRef.doc();
 
@@ -44,25 +44,40 @@ class TransactionRepository {
       customerId: cart.selectedCustomer?.id,
       customerName: cart.selectedCustomer?.name,
       items: items,
-      totalAmount: cart.totalAmount,
+      totalAmount: cart.totalAmount, // Total barang
       totalProfit: cart.totalProfit,
-      paymentStatus: (cart.paymentType == PaymentType.CASH)
+      
+      paymentStatus: (cart.paymentType == PaymentType.CASH || cart.remainingDebt <= 0)
           ? PaymentStatus.PAID
-          : PaymentStatus.DEBT,
+          : PaymentStatus.PARTIAL, // Gunakan PARTIAL jika ada DP
+      
       paymentType: cart.paymentType,
-      paidAmount:
-          (cart.paymentType == PaymentType.CASH) ? cart.totalAmount : 0.0,
-      remainingDebt:
-          (cart.paymentType == PaymentType.CASH) ? 0.0 : cart.totalAmount,
+      
+      // --- SIMPAN DATA KREDIT BARU ---
+      downPayment: cart.downPayment,
+      interestRate: cart.interestRate,
+      tenor: cart.tenor,
+      // --- AKHIR PERUBAHAN DATA KREDIT ---
+
+      paidAmount: (cart.paymentType == PaymentType.CASH) 
+          ? cart.totalWithInterest // Jika tunai, bayar lunas (termasuk bunga jika ada)
+          : cart.downPayment,     // Jika kredit, bayar sejumlah DP
+      
+      remainingDebt: (cart.paymentType == PaymentType.CASH)
+          ? 0.0 // Lunas
+          : cart.remainingDebt, // Ambil dari kalkulasi (Total+Bunga - DP)
+      
       transactionDate: DateTime.now(),
-      dueDate: cart.dueDate,
+      dueDate: cart.dueDate, // (Kita belum implementasi UI-nya, tapi datanya siap)
       notes: cart.notes,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
+    // --- AKHIR PERUBAHAN OBJEK ---
 
     batch.set(transactionRef, newTransaction.toJson());
 
+    // Update stok produk (logika ini tetap sama)
     for (final item in cart.items) {
       final productRef = _productsRef.doc(item.product.id);
       batch.update(productRef, {
@@ -71,11 +86,12 @@ class TransactionRepository {
       });
     }
 
-    if (cart.paymentType == PaymentType.CREDIT &&
-        cart.selectedCustomer != null) {
+    // Update utang pelanggan (logika ini diubah sedikit)
+    if (cart.paymentType == PaymentType.CREDIT && cart.selectedCustomer != null) {
       final customerRef = _customersRef.doc(cart.selectedCustomer!.id);
+      // Tambahkan utang sejumlah 'remainingDebt' (bukan totalAmount lagi)
       batch.update(customerRef, {
-        'totalDebt': FieldValue.increment(cart.totalAmount),
+        'totalDebt': FieldValue.increment(cart.remainingDebt), 
         'updatedAt': FieldValue.serverTimestamp(),
       });
     }
@@ -84,10 +100,11 @@ class TransactionRepository {
   }
 
   // --- FUNGSI GENERATE NOMOR (Sudah ada) ---
-  Future<String> _generateTransactionNumber() async {
+  Future<String> _generateTransactionNumber(String userId) async {
     // ... (kode _generateTransactionNumber Anda yang sudah berfungsi)
     final dateStr = DateFormat('yyyyMMdd').format(DateTime.now());
     final query = await _transactionsRef
+        .where('userId', isEqualTo: userId)
         .where('transactionNumber', isGreaterThanOrEqualTo: 'TRX-$dateStr-0000')
         .where('transactionNumber', isLessThanOrEqualTo: 'TRX-$dateStr-9999')
         .orderBy('transactionNumber', descending: true)
