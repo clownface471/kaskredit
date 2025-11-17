@@ -1,25 +1,27 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'cart_provider.dart';
+part of 'expense_repository.dart';
 
 // **************************************************************************
 // RiverpodGenerator
 // **************************************************************************
 
-String _$cartHash() => r'31a8f1212a4d88ea2f4cf3b0b8daef62de1a360a';
+String _$expenseRepositoryHash() => r'c8c2016716195e7096098a23e092521f78d2f5d8';
 
-/// See also [Cart].
-@ProviderFor(Cart)
-final cartProvider = NotifierProvider<Cart, CartState>.internal(
-  Cart.new,
-  name: r'cartProvider',
+/// See also [expenseRepository].
+@ProviderFor(expenseRepository)
+final expenseRepositoryProvider = Provider<ExpenseRepository>.internal(
+  expenseRepository,
+  name: r'expenseRepositoryProvider',
   debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
       ? null
-      : _$cartHash,
+      : _$expenseRepositoryHash,
   dependencies: null,
   allTransitiveDependencies: null,
 );
 
-typedef _$Cart = Notifier<CartState>;
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef ExpenseRepositoryRef = ProviderRef<ExpenseRepository>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

@@ -98,11 +98,11 @@ class DashboardScreen extends ConsumerWidget {
               children: [
                 _MenuCard(title: "Produk", icon: Icons.inventory_2, onTap: () => context.push('/products')),
                 _MenuCard(title: "Riwayat Bayar", icon: Icons.receipt_long, onTap: () {}),
-                _MenuCard(title: "Riwayat Transaksi", icon: Icons.history, onTap: () {}),
+                _MenuCard(title: "Riwayat Transaksi", icon: Icons.history, onTap: () => context.push('/history'),),
                 _MenuCard(title: "Pelanggan", icon: Icons.people, onTap: () => context.push('/customers')),
                 _MenuCard(title: "Bayar Utang", icon: Icons.monetization_on, onTap: () => context.push('/debt')),
                 _MenuCard(title: "Laporan", icon: Icons.assessment, onTap: () => context.push('/reports')),
-                _MenuCard(title: "Pengeluaran", icon: Icons.payment, onTap: () {}),
+                _MenuCard(title: "Pengeluaran", icon: Icons.payment, onTap: () => context.push('/expenses'),),
                 _MenuCard(title: "Kasir", icon: Icons.person_pin, onTap: () {}),
                 _MenuCard(title: "Pengaturan", icon: Icons.settings, onTap: () {}),
               ],

@@ -19,6 +19,8 @@ import '../../shared/models/customer.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
 import '../../shared/models/product.dart';
+import '../../features/transactions/presentation/screens/transaction_history_screen.dart';
+import '../../features/expenses/presentation/screens/expense_list_screen.dart';
 
 final router = GoRouter(
   initialLocation: '/splash',
@@ -134,6 +136,11 @@ GoRoute(
       path: '/debt',
       builder: (context, state) => const DebtManagementScreen(),
     ),
+    GoRoute(
+      path: '/expenses',
+      builder: (context, state) => const ExpenseListScreen(),
+      // Nanti kita tambahkan sub-rute 'add' di sini
+    ),
     // Halaman Laporan (placeholder)
     GoRoute(
       path: '/reports',
@@ -142,6 +149,10 @@ GoRoute(
     GoRoute(
       path: '/cashier',
       builder: (context, state) => const CashierScreen(),
+    ),
+    GoRoute(
+      path: '/history',
+      builder: (context, state) => const TransactionHistoryScreen(),
     ),
   ],
 );

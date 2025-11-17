@@ -152,5 +152,24 @@ class _TransactionsWithDebtProviderElement
   String get customerId => (origin as TransactionsWithDebtProvider).customerId;
 }
 
+String _$transactionHistoryHash() =>
+    r'dcf6a4479c7ab32d402c219165795c271bc15c57';
+
+/// See also [transactionHistory].
+@ProviderFor(transactionHistory)
+final transactionHistoryProvider =
+    AutoDisposeStreamProvider<List<Transaction>>.internal(
+      transactionHistory,
+      name: r'transactionHistoryProvider',
+      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+          ? null
+          : _$transactionHistoryHash,
+      dependencies: null,
+      allTransitiveDependencies: null,
+    );
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef TransactionHistoryRef = AutoDisposeStreamProviderRef<List<Transaction>>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

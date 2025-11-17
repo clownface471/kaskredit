@@ -133,6 +133,17 @@ class TransactionRepository {
         .map((snapshot) =>
             snapshot.docs.map((doc) => Transaction.fromFirestore(doc)).toList());
   }
+
+  Stream<List<Transaction>> getTransactionHistory(String userId) {
+    return _transactionsRef
+        .where('userId', isEqualTo: userId)
+        // Urutkan berdasarkan tanggal, terbaru di atas
+        .orderBy('transactionDate', descending: true) 
+        .limit(100) // Batasi 100 transaksi terakhir (untuk performa)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Transaction.fromFirestore(doc)).toList());
+  }
 } // <-- PASTIKAN METHOD BARU ADA DI ATAS KURUNG TUTUP INI
 
 // --- PROVIDER (Sudah ada) ---
