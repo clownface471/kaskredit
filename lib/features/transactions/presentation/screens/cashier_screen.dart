@@ -40,11 +40,15 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
   }
 
   void _onProductTap(Product product) {
-    ref.read(cartProvider.notifier).addItem(product);
-    // Kosongkan search bar setelah menambah
-    _searchController.clear();
-    // Tutup keyboard
-    FocusScope.of(context).unfocus();
+    try {
+      ref.read(cartProvider.notifier).addItem(product);
+      _searchController.clear();
+      FocusScope.of(context).unfocus();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+      );
+    }
   }
 
   @override
@@ -312,9 +316,16 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
           // Tombol Update
           TextButton(
             onPressed: () {
-              final newQty = int.tryParse(qtyController.text) ?? 0;
-              ref.read(cartProvider.notifier).updateQuantity(item.product.id!, newQty);
-              Navigator.of(ctx).pop();
+              try {
+                final newQty = int.tryParse(qtyController.text) ?? 0;
+                ref.read(cartProvider.notifier).updateQuantity(item.product.id!, newQty);
+                Navigator.of(ctx).pop();
+              } catch (e) {
+                Navigator.of(ctx).pop(); 
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                );
+              }
             },
             child: const Text("Update"),
           ),

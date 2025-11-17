@@ -2,21 +2,17 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:kaskredit_1/features/transactions/presentation/models/cart_state.dart';
 import 'package:kaskredit_1/shared/models/customer.dart';
 import 'package:kaskredit_1/shared/models/product.dart';
-import 'package:kaskredit_1/shared/models/transaction.dart'; // Untuk Enum
+import 'package:kaskredit_1/shared/models/transaction.dart'; 
 
 part 'cart_provider.g.dart';
 
-// Ini adalah sintaks Notifier modern (menggantikan StateNotifier)
 @Riverpod(keepAlive: true)
 class Cart extends Notifier<CartState> {
   
   @override
   CartState build() {
-    // Kembalikan state awal (keranjang kosong)
     return const CartState();
   }
-
-  // --- Semua fungsi logika pindah ke sini ---
 
   void addItem(Product product, {int quantity = 1}) {
     final existingIndex =
@@ -28,16 +24,14 @@ class Cart extends Notifier<CartState> {
       final newQuantity = oldItem.quantity + quantity;
 
       if (newQuantity > product.stock) {
-        // TODO: Tampilkan error "Stok tidak cukup"
-        return;
+        throw Exception("Stok tidak cukup (sisa: ${product.stock})");
       }
       
       updatedItems[existingIndex] = oldItem.copyWith(quantity: newQuantity);
       state = state.copyWith(items: updatedItems);
     } else {
       if (quantity > product.stock) {
-        // TODO: Tampilkan error
-        return;
+        throw Exception("Stok tidak cukup (sisa: ${product.stock})");
       }
       state = state.copyWith(items: [
         ...state.items,
@@ -61,8 +55,7 @@ class Cart extends Notifier<CartState> {
     final updatedItems = state.items.map((item) {
       if (item.product.id == productId) {
         if (newQuantity > item.product.stock) {
-          // TODO: Tampilkan error
-          return item;
+          throw Exception("Stok tidak cukup (sisa: ${item.product.stock})");
         }
         return item.copyWith(quantity: newQuantity);
       }

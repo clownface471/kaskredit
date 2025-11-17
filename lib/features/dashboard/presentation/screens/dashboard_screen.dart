@@ -23,10 +23,10 @@ class DashboardScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () => ref.read(authRepositoryProvider).signOut(),
-          )
+          ),
         ],
       ),
-      
+
       // 2. Tombol Transaksi (Sesuai Video)
       bottomNavigationBar: BottomAppBar(
         child: Padding(
@@ -48,7 +48,8 @@ class DashboardScreen extends ConsumerWidget {
 
       // 3. Body (Semua kartu dan grid)
       body: statsAsync.when(
-        data: (stats) => _buildDashboardUI(context, stats, false), // false = not loading
+        data: (stats) =>
+            _buildDashboardUI(context, stats, false), // false = not loading
         error: (err, stack) => Center(
           child: Padding(
             padding: const EdgeInsets.all(16.0),
@@ -61,7 +62,11 @@ class DashboardScreen extends ConsumerWidget {
   }
 
   // --- WIDGET UTAMA UNTUK BODY ---
-  Widget _buildDashboardUI(BuildContext context, DashboardStats? stats, bool isLoading) {
+  Widget _buildDashboardUI(
+    BuildContext context,
+    DashboardStats? stats,
+    bool isLoading,
+  ) {
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -69,7 +74,7 @@ class DashboardScreen extends ConsumerWidget {
           children: [
             // 1. KARTU LAPORAN HARI INI (Sesuai Video)
             _LaporanHariIniCard(stats: stats, isLoading: isLoading),
-            
+
             const SizedBox(height: 16),
 
             // 2. KARTU INFO TOKO (Sesuai Video)
@@ -77,7 +82,7 @@ class DashboardScreen extends ConsumerWidget {
               namaToko: "Toko Kredit Anda", // Nanti pakai: user?.shopName
               alamat: "Jalan Teracota No.17", // Nanti pakai: user?.address
             ),
-            
+
             const SizedBox(height: 16),
 
             // 3. BOKS JATUH TEMPO (Sesuai Video)
@@ -96,15 +101,51 @@ class DashboardScreen extends ConsumerWidget {
               crossAxisSpacing: 10,
               mainAxisSpacing: 10,
               children: [
-                _MenuCard(title: "Produk", icon: Icons.inventory_2, onTap: () => context.push('/products')),
-                _MenuCard(title: "Riwayat Bayar", icon: Icons.receipt_long, onTap: () {}),
-                _MenuCard(title: "Riwayat Transaksi", icon: Icons.history, onTap: () => context.push('/history'),),
-                _MenuCard(title: "Pelanggan", icon: Icons.people, onTap: () => context.push('/customers')),
-                _MenuCard(title: "Bayar Utang", icon: Icons.monetization_on, onTap: () => context.push('/debt')),
-                _MenuCard(title: "Laporan", icon: Icons.assessment, onTap: () => context.push('/reports')),
-                _MenuCard(title: "Pengeluaran", icon: Icons.payment, onTap: () => context.push('/expenses'),),
-                _MenuCard(title: "Kasir", icon: Icons.person_pin, onTap: () {}),
-                _MenuCard(title: "Pengaturan", icon: Icons.settings, onTap: () {}),
+                _MenuCard(
+                  title: "Produk",
+                  icon: Icons.inventory_2,
+                  onTap: () => context.push('/products'),
+                ),
+                _MenuCard(
+                  title: "Riwayat Bayar",
+                  icon: Icons.receipt_long,
+                  onTap: () => context.push('/payment-history'),
+                ),
+                _MenuCard(
+                  title: "Riwayat Transaksi",
+                  icon: Icons.history,
+                  onTap: () => context.push('/history'),
+                ),
+                _MenuCard(
+                  title: "Pelanggan",
+                  icon: Icons.people,
+                  onTap: () => context.push('/customers'),
+                ),
+                _MenuCard(
+                  title: "Bayar Utang",
+                  icon: Icons.monetization_on,
+                  onTap: () => context.push('/debt'),
+                ),
+                _MenuCard(
+                  title: "Laporan",
+                  icon: Icons.assessment,
+                  onTap: () => context.push('/reports'),
+                ),
+                _MenuCard(
+                  title: "Pengeluaran",
+                  icon: Icons.payment,
+                  onTap: () => context.push('/expenses'),
+                ),
+                _MenuCard(
+                  title: "Kasir",
+                  icon: Icons.person_pin,
+                  onTap: () => context.push('/cashier'), 
+                ),
+                _MenuCard(
+                  title: "Pengaturan",
+                  icon: Icons.settings,
+                  onTap: () => context.push('/settings'),
+                ),
               ],
             ),
           ],
@@ -133,17 +174,26 @@ class _LaporanHariIniCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Laporan Hari Ini", style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white)),
+            Text(
+              "Laporan Hari Ini",
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(color: Colors.white),
+            ),
             const SizedBox(height: 12),
             _StatRow(
               label: "Total Penjualan",
-              value: isLoading ? "..." : Formatters.currency.format(stats!.todaySales),
+              value: isLoading
+                  ? "..."
+                  : Formatters.currency.format(stats!.todaySales),
               color: Colors.white,
             ),
             const SizedBox(height: 4),
             _StatRow(
               label: "Total Profit",
-              value: isLoading ? "..." : Formatters.currency.format(stats!.todayProfit),
+              value: isLoading
+                  ? "..."
+                  : Formatters.currency.format(stats!.todayProfit),
               color: Colors.white,
             ),
           ],
@@ -174,12 +224,20 @@ class _InfoTokoCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(namaToko, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  Text(
+                    namaToko,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   Text(alamat, style: Theme.of(context).textTheme.bodyMedium),
                 ],
               ),
             ),
-            IconButton(icon: const Icon(Icons.edit, color: Colors.grey), onPressed: () {}),
+            IconButton(
+              icon: const Icon(Icons.edit, color: Colors.grey),
+              onPressed: () {},
+            ),
           ],
         ),
       ),
@@ -191,15 +249,30 @@ class _InfoTokoCard extends StatelessWidget {
 class _JatuhTempoRow extends StatelessWidget {
   final int jatuhTempoHariIni;
   final int lewatJatuhTempo;
-  const _JatuhTempoRow({required this.jatuhTempoHariIni, required this.lewatJatuhTempo});
+  const _JatuhTempoRow({
+    required this.jatuhTempoHariIni,
+    required this.lewatJatuhTempo,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: _JatuhTempoCard(title: "Jatuh Tempo Hari Ini", count: jatuhTempoHariIni, color: Colors.orange)),
+        Expanded(
+          child: _JatuhTempoCard(
+            title: "Jatuh Tempo Hari Ini",
+            count: jatuhTempoHariIni,
+            color: Colors.orange,
+          ),
+        ),
         const SizedBox(width: 16),
-        Expanded(child: _JatuhTempoCard(title: "Lewat Jatuh Tempo", count: lewatJatuhTempo, color: Colors.red)),
+        Expanded(
+          child: _JatuhTempoCard(
+            title: "Lewat Jatuh Tempo",
+            count: lewatJatuhTempo,
+            color: Colors.red,
+          ),
+        ),
       ],
     );
   }
@@ -209,7 +282,11 @@ class _JatuhTempoCard extends StatelessWidget {
   final String title;
   final int count;
   final Color color;
-  const _JatuhTempoCard({required this.title, required this.count, required this.color});
+  const _JatuhTempoCard({
+    required this.title,
+    required this.count,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -226,8 +303,20 @@ class _JatuhTempoCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(count.toString(), style: Theme.of(context).textTheme.titleLarge?.copyWith(color: color, fontWeight: FontWeight.bold)),
-                  Text(title, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.black87), maxLines: 2),
+                  Text(
+                    count.toString(),
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: color,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    title,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: Colors.black87),
+                    maxLines: 2,
+                  ),
                 ],
               ),
             ),
@@ -245,7 +334,11 @@ class _MenuCard extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
 
-  const _MenuCard({required this.title, required this.icon, required this.onTap});
+  const _MenuCard({
+    required this.title,
+    required this.icon,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -293,14 +386,17 @@ class _StatRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(fontSize: 15, color: color ?? Colors.white70)),
+          Text(
+            label,
+            style: TextStyle(fontSize: 15, color: color ?? Colors.white70),
+          ),
           if (isLoading)
             Container(
               width: 80,
               height: 16,
               decoration: BoxDecoration(
                 color: Colors.white24,
-                borderRadius: BorderRadius.circular(4)
+                borderRadius: BorderRadius.circular(4),
               ),
             )
           else

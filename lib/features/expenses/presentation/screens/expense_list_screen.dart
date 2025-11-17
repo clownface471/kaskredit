@@ -14,13 +14,10 @@ class ExpenseListScreen extends ConsumerWidget {
     final expensesAsync = ref.watch(expensesProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Daftar Pengeluaran"),
-      ),
+      appBar: AppBar(title: const Text("Daftar Pengeluaran")),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // Nanti kita buat halaman AddExpense
-          // context.push('/expenses/add');
+          context.push('/expenses/add');
         },
         child: const Icon(Icons.add),
       ),
@@ -28,7 +25,9 @@ class ExpenseListScreen extends ConsumerWidget {
         data: (expenses) {
           if (expenses.isEmpty) {
             return const Center(
-              child: Text("Belum ada pengeluaran. Tekan tombol + untuk menambah."),
+              child: Text(
+                "Belum ada pengeluaran. Tekan tombol + untuk menambah.",
+              ),
             );
           }
 
@@ -41,9 +40,7 @@ class ExpenseListScreen extends ConsumerWidget {
               return Card(
                 margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                 child: ListTile(
-                  leading: const CircleAvatar(
-                    child: Icon(Icons.payment),
-                  ),
+                  leading: const CircleAvatar(child: Icon(Icons.payment)),
                   title: Text(expense.description),
                   subtitle: Text(
                     DateFormat('d MMM yyyy').format(expense.expenseDate),
@@ -57,19 +54,16 @@ class ExpenseListScreen extends ConsumerWidget {
                     ),
                   ),
                   onTap: () {
-                    // Nanti bisa dibuat halaman edit/detail
+                    context.push('/expenses/edit/${expense.id}');
                   },
                 ),
               );
             },
           );
         },
-        error: (err, stack) => Center(
-          child: Text("Error memuat pengeluaran: $err"),
-        ),
-        loading: () => const Center(
-          child: CircularProgressIndicator(),
-        ),
+        error: (err, stack) =>
+            Center(child: Text("Error memuat pengeluaran: $err")),
+        loading: () => const Center(child: CircularProgressIndicator()),
       ),
     );
   }

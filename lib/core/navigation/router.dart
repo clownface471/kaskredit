@@ -6,33 +6,33 @@ import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../../features/products/presentation/screens/product_list_screen.dart';
 import '../../features/products/presentation/screens/add_product_screen.dart';
-import '../../features/products/presentation/screens/edit_product_screen.dart'; 
+import '../../features/products/presentation/screens/edit_product_screen.dart';
 import '../../features/products/presentation/providers/product_providers.dart';
-import '../../features/customers/presentation/screens/customer_list_screen.dart'; 
+import '../../features/customers/presentation/screens/customer_list_screen.dart';
 import '../../features/customers/presentation/screens/add_customer_screen.dart';
 import '../../features/customers/presentation/screens/edit_customer_screen.dart';
 import '../../features/customers/presentation/providers/customer_providers.dart';
 import '../../features/transactions/presentation/screens/cashier_screen.dart';
 import '../../features/payments/presentation/screens/debt_management_screen.dart';
 import '../../features/reports/presentation/screens/report_screen.dart';
-import '../../shared/models/customer.dart'; 
+import '../../shared/models/customer.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
 import '../../shared/models/product.dart';
 import '../../features/transactions/presentation/screens/transaction_history_screen.dart';
 import '../../features/expenses/presentation/screens/expense_list_screen.dart';
+import '../../features/expenses/presentation/screens/add_expense_screen.dart';
+import '../../features/expenses/presentation/screens/edit_expense_screen.dart';
+import '../../features/expenses/presentation/providers/expense_providers.dart';
+import '../../shared/models/expense.dart';
+import '../../features/payments/presentation/screens/payment_history_screen.dart';
+import '../../features/settings/presentation/screens/settings_screen.dart';
 
 final router = GoRouter(
   initialLocation: '/splash',
   routes: [
-    GoRoute(
-      path: '/splash',
-      builder: (context, state) => const SplashScreen(),
-    ),
-    GoRoute(
-      path: '/login',
-      builder: (context, state) => const LoginScreen(),
-    ),
+    GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
+    GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
     GoRoute(
       path: '/register',
       builder: (context, state) => const RegisterScreen(),
@@ -43,7 +43,7 @@ final router = GoRouter(
       builder: (context, state) => const DashboardScreen(),
     ),
     // Halaman Produk (halaman terpisah)
-GoRoute(
+    GoRoute(
       path: '/products',
       builder: (context, state) => const ProductListScreen(),
       routes: [
@@ -57,10 +57,11 @@ GoRoute(
           builder: (context, state) {
             // Ambil ID dari parameter URL
             final productId = state.pathParameters['id']!;
-            
+
             // Kita butuh ProviderScope untuk 'read' provider di dalam builder
             return ProviderScope(
-              child: Consumer( // Consumer agar kita bisa 'read'
+              child: Consumer(
+                // Consumer agar kita bisa 'read'
                 builder: (context, ref, child) {
                   // Ambil data produk dari provider list
                   final productAsync = ref.read(productsProvider);
@@ -93,7 +94,7 @@ GoRoute(
         ),
       ],
     ),
-  GoRoute(
+    GoRoute(
       path: '/customers',
       builder: (context, state) => const CustomerListScreen(),
       routes: [
@@ -122,7 +123,8 @@ GoRoute(
 
                   if (customer == null) {
                     return const Scaffold(
-                        body: Center(child: Text("Pelanggan tidak ditemukan")));
+                      body: Center(child: Text("Pelanggan tidak ditemukan")),
+                    );
                   }
                   return EditCustomerScreen(customer: customer);
                 },
@@ -139,12 +141,52 @@ GoRoute(
     GoRoute(
       path: '/expenses',
       builder: (context, state) => const ExpenseListScreen(),
-      // Nanti kita tambahkan sub-rute 'add' di sini
+      routes: [
+        GoRoute(
+          path: 'add',
+          builder: (context, state) => const AddExpenseScreen(),
+        ),
+        // --- TAMBAHKAN RUTE EDIT INI ---
+        GoRoute(
+          path: 'edit/:id',
+          builder: (context, state) {
+            final expenseId = state.pathParameters['id']!;
+            return ProviderScope(
+              child: Consumer(
+                builder: (context, ref, child) {
+                  // Kita pakai .read agar tidak crash saat delete
+                  final expensesAsync = ref.read(expensesProvider);
+                  Expense? expense;
+                  try {
+                    expense = expensesAsync.valueOrNull?.firstWhere(
+                      (e) => e.id == expenseId,
+                    );
+                  } catch (_) {
+                    expense = null;
+                  }
+
+                  if (expense == null) {
+                    return const Scaffold(
+                      body: Center(child: Text("Pengeluaran tidak ditemukan")),
+                    );
+                  }
+                  return EditExpenseScreen(expense: expense);
+                },
+              ),
+            );
+          },
+        ),
+        // --- AKHIR TAMBAHAN ---
+      ],
     ),
     // Halaman Laporan (placeholder)
     GoRoute(
       path: '/reports',
       builder: (context, state) => const ReportScreen(),
+    ),
+    GoRoute(
+      path: '/settings',
+      builder: (context, state) => const SettingsScreen(),
     ),
     GoRoute(
       path: '/cashier',
@@ -153,6 +195,10 @@ GoRoute(
     GoRoute(
       path: '/history',
       builder: (context, state) => const TransactionHistoryScreen(),
+    ),
+    GoRoute(
+      path: '/payment-history',
+      builder: (context, state) => const PaymentHistoryScreen(),
     ),
   ],
 );

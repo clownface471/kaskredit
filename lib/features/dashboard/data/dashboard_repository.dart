@@ -22,58 +22,82 @@ class DashboardRepository {
     int totalDebtors = 0;
     int lowStockProducts = 0;
 
-    // --- QUERY 1: Transaksi Hari Ini (DIPERBAIKI) ---
-    // Indeks yang dipakai: transactions(userId ASC, transactionDate DESC)
-    final txSnap = await _firestore
-        .collection('transactions')
-        .where('userId', isEqualTo: userId)
-        .where('transactionDate', isGreaterThanOrEqualTo: startOfDay)
-        .where('transactionDate', isLessThanOrEqualTo: endOfDay)
-        // TAMBAHKAN ORDERBY INI:
-        .orderBy('transactionDate', descending: true) 
-        .get();
+    try {
+      // --- QUERY 1: Transaksi Hari Ini ---
+      final txSnap = await _firestore
+          .collection('transactions')
+          .where('userId', isEqualTo: userId)
+          .where('transactionDate', isGreaterThanOrEqualTo: startOfDay)
+          .where('transactionDate', isLessThanOrEqualTo: endOfDay)
+          .orderBy('transactionDate', descending: true)
+          .get();
 
-    todayTransactions = txSnap.docs.length;
-    for (final doc in txSnap.docs) {
-      final tx = Transaction.fromFirestore(doc);
-      todaySales += tx.totalAmount;
-      todayProfit += tx.totalProfit;
-      if (tx.paymentType == PaymentType.CREDIT) {
-        todayNewDebt += tx.remainingDebt;
+      todayTransactions = txSnap.docs.length;
+      for (final doc in txSnap.docs) {
+        try {
+          final tx = Transaction.fromFirestore(doc);
+          todaySales += tx.totalAmount;
+          todayProfit += tx.totalProfit;
+          if (tx.paymentType == PaymentType.CREDIT) {
+            todayNewDebt += tx.remainingDebt;
+          }
+        } catch (e) {
+          // Skip dokumen yang corrupt/invalid
+          print('Error parsing transaction ${doc.id}: $e');
+        }
       }
+    } catch (e) {
+      // Kalau query gagal (misal index belum ada), return default
+      print('Error querying transactions: $e');
     }
 
-    // --- QUERY 2: Pelanggan (DIPERBAIKI) ---
-    // Indeks yang dipakai: customers(userId ASC, totalDebt DESC)
-    final customerSnap = await _firestore
-        .collection('customers')
-        .where('userId', isEqualTo: userId)
-        .where('totalDebt', isGreaterThan: 0)
-        // TAMBAHKAN ORDERBY INI:
-        .orderBy('totalDebt', descending: true) 
-        .get();
+    try {
+      // --- QUERY 2: Pelanggan ---
+      final customerSnap = await _firestore
+          .collection('customers')
+          .where('userId', isEqualTo: userId)
+          .where('totalDebt', isGreaterThan: 0)
+          .orderBy('totalDebt', descending: true)
+          .get();
 
-    totalDebtors = customerSnap.docs.length;
-    for (final doc in customerSnap.docs) {
-      totalOutstandingDebt += (doc.data()['totalDebt'] as num).toDouble();
+      totalDebtors = customerSnap.docs.length;
+      for (final doc in customerSnap.docs) {
+        try {
+          final data = doc.data();
+          if (data['totalDebt'] != null) {
+            totalOutstandingDebt += (data['totalDebt'] as num).toDouble();
+          }
+        } catch (e) {
+          print('Error parsing customer ${doc.id}: $e');
+        }
+      }
+    } catch (e) {
+      print('Error querying customers: $e');
     }
 
-    // --- QUERY 3: Produk (DIPERBAIKI) ---
-    // Indeks yang dipakai: products(userId ASC, isActive ASC, name ASC)
-    final productSnap = await _firestore
-        .collection('products')
-        .where('userId', isEqualTo: userId)
-        .where('isActive', isEqualTo: true)
-        // TAMBAHKAN ORDERBY INI:
-        .orderBy('name', descending: false)
-        .get();
+    try {
+      // --- QUERY 3: Produk ---
+      final productSnap = await _firestore
+          .collection('products')
+          .where('userId', isEqualTo: userId)
+          .where('isActive', isEqualTo: true)
+          .orderBy('name', descending: false)
+          .get();
 
-    for (final doc in productSnap.docs) {
-      final stock = (doc.data()['stock'] as num).toInt();
-      final minStock = (doc.data()['minStock'] as num).toInt();
-      if (stock <= minStock) {
-        lowStockProducts++;
+      for (final doc in productSnap.docs) {
+        try {
+          final data = doc.data();
+          final stock = (data['stock'] as num?)?.toInt() ?? 0;
+          final minStock = (data['minStock'] as num?)?.toInt() ?? 5;
+          if (stock <= minStock) {
+            lowStockProducts++;
+          }
+        } catch (e) {
+          print('Error parsing product ${doc.id}: $e');
+        }
       }
+    } catch (e) {
+      print('Error querying products: $e');
     }
 
     return DashboardStats(

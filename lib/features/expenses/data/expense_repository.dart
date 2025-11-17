@@ -10,7 +10,7 @@ class ExpenseRepository {
   final CollectionReference _expensesRef;
 
   ExpenseRepository()
-      : _expensesRef = FirebaseFirestore.instance.collection('expenses');
+    : _expensesRef = FirebaseFirestore.instance.collection('expenses');
 
   // === READ ===
   Stream<List<Expense>> getExpenses(String userId) {
@@ -18,8 +18,10 @@ class ExpenseRepository {
         .where('userId', isEqualTo: userId)
         .orderBy('expenseDate', descending: true) // Terbaru di atas
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => Expense.fromFirestore(doc)).toList());
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => Expense.fromFirestore(doc)).toList(),
+        );
   }
 
   // === CREATE ===
@@ -28,6 +30,18 @@ class ExpenseRepository {
       await _expensesRef.add(expense.toJson());
     } catch (e) {
       throw Exception('Gagal menambah pengeluaran: $e');
+    }
+  }
+
+  Future<void> updateExpense(Expense expense) async {
+    try {
+      // Pastikan ID tidak null
+      if (expense.id == null) {
+        throw Exception("ID Pengeluaran tidak valid untuk update.");
+      }
+      await _expensesRef.doc(expense.id).update(expense.toJson());
+    } catch (e) {
+      throw Exception('Gagal mengupdate pengeluaran: $e');
     }
   }
 

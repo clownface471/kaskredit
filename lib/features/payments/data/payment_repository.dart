@@ -13,9 +13,9 @@ class PaymentRepository {
   final CollectionReference _customersRef;
 
   PaymentRepository()
-      : _paymentsRef = FirebaseFirestore.instance.collection('payments'),
-        _transactionsRef = FirebaseFirestore.instance.collection('transactions'),
-        _customersRef = FirebaseFirestore.instance.collection('customers');
+    : _paymentsRef = FirebaseFirestore.instance.collection('payments'),
+      _transactionsRef = FirebaseFirestore.instance.collection('transactions'),
+      _customersRef = FirebaseFirestore.instance.collection('customers');
 
   // === FUNGSI UTAMA: PROSES PEMBAYARAN ===
   Future<void> processPayment({
@@ -90,7 +90,9 @@ class PaymentRepository {
 
       // C. Update Customer
       batch.update(customerDocRef, {
-        'totalDebt': FieldValue.increment(-paymentAmount), // Kurangi total utang
+        'totalDebt': FieldValue.increment(
+          -paymentAmount,
+        ), // Kurangi total utang
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
@@ -109,8 +111,22 @@ class PaymentRepository {
         .where('customerId', isEqualTo: customerId)
         .orderBy('paymentDate', descending: true)
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => Payment.fromFirestore(doc)).toList());
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => Payment.fromFirestore(doc)).toList(),
+        );
+  }
+
+  Stream<List<Payment>> getAllPayments(String userId) {
+    return _paymentsRef
+        .where('userId', isEqualTo: userId)
+        .orderBy('paymentDate', descending: true) // Terbaru di atas
+        .limit(100) // Batasi 100 pembayaran terakhir
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => Payment.fromFirestore(doc)).toList(),
+        );
   }
 }
 
