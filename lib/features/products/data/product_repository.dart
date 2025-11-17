@@ -1,13 +1,9 @@
-// 1. PERBAIKI TYPO 'packagepackage'
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// 2. TAMBAHKAN IMPORT UNTUK GENERATOR
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-// KODE BENAR:
 import '../../../shared/models/product.dart';
 
-// 3. TAMBAHKAN PART FILE UNTUK GENERATOR
 part 'product_repository.g.dart';
 
 class ProductRepository {
@@ -60,8 +56,7 @@ class ProductRepository {
   }
 }
 
-// 4. PERBAIKI 'Ref' MENJADI 'ProductRepositoryRef' (spesifik)
 @Riverpod(keepAlive: true)
-ProductRepository productRepository(ProductRepositoryRef ref) {
+ProductRepository productRepository(Ref ref) {
   return ProductRepository();
 }

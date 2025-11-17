@@ -78,15 +78,15 @@ class DashboardScreen extends ConsumerWidget {
             const SizedBox(height: 16),
 
             // 2. KARTU INFO TOKO (Sesuai Video)
-            _InfoTokoCard(
-              namaToko: "Toko Kredit Anda", // Nanti pakai: user?.shopName
+            const _InfoTokoCard(
+              namaToko: "Toko Kredit Anda", 
               alamat: "Jalan Teracota No.17", // Nanti pakai: user?.address
             ),
 
             const SizedBox(height: 16),
 
             // 3. BOKS JATUH TEMPO (Sesuai Video)
-            _JatuhTempoRow(
+            const _JatuhTempoRow(
               jatuhTempoHariIni: 2, // Nanti pakai data
               lewatJatuhTempo: 6, // Nanti pakai data
             ),
