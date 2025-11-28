@@ -1,5 +1,5 @@
 import 'package:go_router/go_router.dart';
-// Hapus semua import GlobalKey dan MainShell
+import '../../features/printer/presentation/screens/printer_settings_screen.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
@@ -185,9 +185,15 @@ final router = GoRouter(
       builder: (context, state) => const ReportScreen(),
     ),
     GoRoute(
-      path: '/settings',
-      builder: (context, state) => const SettingsScreen(),
+  path: '/settings',
+  builder: (context, state) => const SettingsScreen(),
+  routes: [
+    GoRoute(
+      path: 'printer',
+      builder: (context, state) => const PrinterSettingsScreen(),
     ),
+  ],
+),
     GoRoute(
       path: '/cashier',
       builder: (context, state) => const CashierScreen(),

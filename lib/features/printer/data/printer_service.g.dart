@@ -1,25 +1,27 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'cart_provider.dart';
+part of 'printer_service.dart';
 
 // **************************************************************************
 // RiverpodGenerator
 // **************************************************************************
 
-String _$cartHash() => r'bb9ffdcb8209fbfa8ec49834522f78ff61cb94bf';
+String _$printerServiceHash() => r'131cda59e6c76fc4894cf5caf4b01f0741bf72a1';
 
-/// See also [Cart].
-@ProviderFor(Cart)
-final cartProvider = NotifierProvider<Cart, CartState>.internal(
-  Cart.new,
-  name: r'cartProvider',
+/// See also [printerService].
+@ProviderFor(printerService)
+final printerServiceProvider = Provider<PrinterService>.internal(
+  printerService,
+  name: r'printerServiceProvider',
   debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
       ? null
-      : _$cartHash,
+      : _$printerServiceHash,
   dependencies: null,
   allTransitiveDependencies: null,
 );
 
-typedef _$Cart = Notifier<CartState>;
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef PrinterServiceRef = ProviderRef<PrinterService>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

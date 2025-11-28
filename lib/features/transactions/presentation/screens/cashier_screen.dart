@@ -11,6 +11,9 @@ import 'package:kaskredit_1/features/transactions/data/transaction_repository.da
 import 'package:kaskredit_1/features/auth/presentation/providers/auth_providers.dart';
 import 'package:flutter/services.dart';
 import 'package:kaskredit_1/core/utils/formatters.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
+import 'package:kaskredit_1/features/printer/data/printer_service.dart';
+import 'package:kaskredit_1/features/printer/presentation/providers/printer_settings_provider.dart';
 
 class CashierScreen extends ConsumerStatefulWidget {
   const CashierScreen({super.key});
@@ -336,51 +339,143 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
 
   // Fungsi Checkout
   Future<void> _checkout() async {
-    final cartState = ref.read(cartProvider);
+  final cartState = ref.read(cartProvider);
 
-    // Dapatkan User ID
-    final userId = ref.read(currentUserProvider).value?.id;
-    if (userId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Error: User tidak login.")),
-      );
-      return;
+  final userId = ref.read(currentUserProvider).value?.id;
+  if (userId == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Error: User tidak login.")),
+    );
+    return;
+  }
+
+  try {
+    // 1. Simpan transaksi
+    await ref.read(transactionRepositoryProvider).createTransaction(cartState, userId);
+
+    // 2. Ambil transaksi terakhir untuk di-print (sebagai alternatif, return transaction dari createTransaction)
+    final lastTransaction = await _getLastTransaction(userId);
+
+    if (lastTransaction == null) {
+      throw Exception('Gagal mengambil data transaksi');
     }
 
-    // Tampilkan loading (jika perlu)
-    // setState(() => _isLoading = true); // (Tambahkan state _isLoading jika mau)
+    // 3. Bersihkan keranjang
+    ref.read(cartProvider.notifier).clear();
 
-    try {
-      // Panggil repository
-      await ref.read(transactionRepositoryProvider).createTransaction(cartState, userId);
-
-      // Bersihkan keranjang
-      ref.read(cartProvider.notifier).clear();
-
-      // Tampilkan notifikasi sukses
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Transaksi berhasil disimpan!"),
-            backgroundColor: Colors.green,
+    // 4. Cek apakah auto-print aktif
+    final settings = await ref.read(printerSettingsNotifierProvider.future);
+    
+    if (mounted) {
+      // 5. Tampilkan dialog sukses dengan opsi print
+      final shouldPrint = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Transaksi Berhasil'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('No: ${lastTransaction.transactionNumber}'),
+              Text('Total: ${Formatters.currency.format(lastTransaction.totalAmount)}'),
+              const SizedBox(height: 16),
+              if (settings.printerIp != null)
+                const Text('Cetak struk sekarang?')
+              else
+                const Text(
+                  'Printer belum dikonfigurasi.\nAtur di menu Pengaturan.',
+                  style: TextStyle(color: Colors.orange, fontSize: 12),
+                ),
+            ],
           ),
-        );
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Tidak'),
+            ),
+            if (settings.printerIp != null)
+              ElevatedButton.icon(
+  icon: const Icon(Icons.print),
+  label: const Text('Cetak'),
+  onPressed: () => Navigator.of(ctx).pop(true),
+),
+          ],
+        ),
+      );
+
+      // 6. Print jika user memilih atau auto-print aktif
+      if (shouldPrint == true || settings.autoPrint) {
+        if (settings.printerIp != null) {
+          await _printReceipt(lastTransaction, settings);
+        }
       }
-    } catch (e) {
-      // Tampilkan error
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Gagal menyimpan transaksi: $e"),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      // Hilangkan loading
-      // if (mounted) setState(() => _isLoading = false);
+    }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Gagal menyimpan transaksi: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
+}
+
+// Fungsi helper untuk mengambil transaksi terakhir
+Future<Transaction?> _getLastTransaction(String userId) async {
+  try {
+    final snapshot = await FirebaseFirestore.instance
+        .collection('transactions')
+        .where('userId', isEqualTo: userId)
+        .orderBy('createdAt', descending: true)
+        .limit(1)
+        .get();
+    
+    if (snapshot.docs.isEmpty) return null;
+    
+    return Transaction.fromFirestore(snapshot.docs.first);
+  } catch (e) {
+    print('Error getting last transaction: $e');
+    return null;
+  }
+}
+
+// Fungsi helper untuk print
+Future<void> _printReceipt(Transaction transaction, PrinterSettings settings) async {
+  // Show loading
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (ctx) => const Center(
+      child: CircularProgressIndicator(),
+    ),
+  );
+
+  final user = ref.read(currentUserProvider).value;
+  final service = ref.read(printerServiceProvider);
+
+  final success = await service.printReceipt(
+    printerIp: settings.printerIp!,
+    transaction: transaction,
+    shopName: user?.shopName ?? 'KasKredit',
+    footerNote: settings.footerNote,
+  );
+
+  // Close loading
+  if (mounted) Navigator.of(context).pop();
+
+  // Show result
+  if (mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(success ? 'Struk berhasil dicetak' : 'Gagal mencetak struk'),
+        backgroundColor: success ? Colors.green : Colors.red,
+      ),
+    );
+  }
+}
   Widget _InfoRow({required String label, required String value, bool isBold = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),

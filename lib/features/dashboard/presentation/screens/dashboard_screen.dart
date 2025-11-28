@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:kaskredit_1/features/auth/data/auth_repository.dart';
 import 'package:kaskredit_1/features/dashboard/presentation/providers/dashboard_providers.dart';
 import 'package:kaskredit_1/shared/models/dashboard_stats.dart';
-import 'package:kaskredit_1/core/utils/formatters.dart'; // Kita butuh formatter
+import 'package:kaskredit_1/core/utils/formatters.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -12,11 +12,8 @@ class DashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final statsAsync = ref.watch(dashboardStatsProvider);
-    // Ambil info user (nanti kita pakai)
-    // final user = ref.watch(currentUserProvider).value;
 
     return Scaffold(
-      // 1. AppBar (Sesuai Video)
       appBar: AppBar(
         title: const Text("Kasir Mini KREDIT"),
         actions: [
@@ -27,14 +24,13 @@ class DashboardScreen extends ConsumerWidget {
         ],
       ),
 
-      // 2. Tombol Transaksi (Sesuai Video)
       bottomNavigationBar: BottomAppBar(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
-              backgroundColor: Colors.grey[800], // Warna gelap
+              backgroundColor: Colors.grey[800], 
               foregroundColor: Colors.white,
             ),
             onPressed: () => context.push('/cashier'),
@@ -46,22 +42,20 @@ class DashboardScreen extends ConsumerWidget {
         ),
       ),
 
-      // 3. Body (Semua kartu dan grid)
       body: statsAsync.when(
         data: (stats) =>
-            _buildDashboardUI(context, stats, false), // false = not loading
+            _buildDashboardUI(context, stats, false),
         error: (err, stack) => Center(
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Text("Gagal memuat data: $err"),
           ),
         ),
-        loading: () => _buildDashboardUI(context, null, true), // true = loading
+        loading: () => _buildDashboardUI(context, null, true), 
       ),
     );
   }
 
-  // --- WIDGET UTAMA UNTUK BODY ---
   Widget _buildDashboardUI(
     BuildContext context,
     DashboardStats? stats,
@@ -72,30 +66,26 @@ class DashboardScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // 1. KARTU LAPORAN HARI INI (Sesuai Video)
             _LaporanHariIniCard(stats: stats, isLoading: isLoading),
 
             const SizedBox(height: 16),
 
-            // 2. KARTU INFO TOKO (Sesuai Video)
             const _InfoTokoCard(
               namaToko: "Toko Kredit Anda", 
-              alamat: "Jalan Teracota No.17", // Nanti pakai: user?.address
+              alamat: "Jalan Teracota No.17", 
             ),
 
             const SizedBox(height: 16),
 
-            // 3. BOKS JATUH TEMPO (Sesuai Video)
             const _JatuhTempoRow(
-              jatuhTempoHariIni: 2, // Nanti pakai data
-              lewatJatuhTempo: 6, // Nanti pakai data
+              jatuhTempoHariIni: 2,
+              lewatJatuhTempo: 6,
             ),
 
             const SizedBox(height: 24),
 
-            // 4. GRID MENU (Sesuai Video)
             GridView.count(
-              crossAxisCount: 3, // 3 kolom di HP
+              crossAxisCount: 3, 
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               crossAxisSpacing: 10,
