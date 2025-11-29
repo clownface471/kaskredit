@@ -1,44 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-// import 'package:kaskredit_1/features/auth/presentation/providers/auth_providers.dart';
-import 'package:kaskredit_1/features/products/data/product_repository.dart';
+import 'package:get/get.dart';
+import 'package:kaskredit_1/features/products/presentation/controllers/product_controller.dart';
 import 'package:kaskredit_1/shared/models/product.dart';
 
-// 1. GANTI NAMA CLASS
-class EditProductScreen extends ConsumerStatefulWidget {
-  // 2. TAMBAHKAN product YANG MAU DIEDIT
-  final Product product;
-
-  const EditProductScreen({super.key, required this.product});
+class EditProductScreen extends StatefulWidget {
+  const EditProductScreen({super.key}); // HAPUS parameter product
 
   @override
-  // 3. GANTI NAMA STATE
-  ConsumerState<EditProductScreen> createState() => _EditProductScreenState();
+  State<EditProductScreen> createState() => _EditProductScreenState();
 }
 
-// 4. GANTI NAMA STATE
-class _EditProductScreenState extends ConsumerState<EditProductScreen> {
+class _EditProductScreenState extends State<EditProductScreen> {
   final _formKey = GlobalKey<FormState>();
-  bool _isLoading = false;
-
-  final _nameController = TextEditingController();
-  final _capitalPriceController = TextEditingController();
-  final _sellingPriceController = TextEditingController();
-  final _stockController = TextEditingController();
+  
+  late final TextEditingController _nameController;
+  late final TextEditingController _capitalPriceController;
+  late final TextEditingController _sellingPriceController;
+  late final TextEditingController _stockController;
   late final TextEditingController _categoryController;
 
-  // 5. TAMBAHKAN initState UNTUK MENGISI FORM
+  // Get product from arguments
+  late final Product product;
+
   @override
   void initState() {
     super.initState();
-    // Isi controller dengan data produk yang ada
-    _nameController.text = widget.product.name;
-    _capitalPriceController.text = widget.product.capitalPrice.toStringAsFixed(0);
-    _sellingPriceController.text = widget.product.sellingPrice.toStringAsFixed(0);
-    _stockController.text = widget.product.stock.toString();
-    _categoryController = TextEditingController(text: widget.product.category);
+    
+    // Get argument menggunakan GetX
+    product = Get.arguments as Product;
+    
+    _nameController = TextEditingController(text: product.name);
+    _capitalPriceController = TextEditingController(
+      text: product.capitalPrice.toStringAsFixed(0),
+    );
+    _sellingPriceController = TextEditingController(
+      text: product.sellingPrice.toStringAsFixed(0),
+    );
+    _stockController = TextEditingController(text: product.stock.toString());
+    _categoryController = TextEditingController(text: product.category);
   }
 
   @override
@@ -51,120 +51,58 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
     super.dispose();
   }
 
-  // 6. UBAH FUNGSI _submit MENJADI _update
   Future<void> _update() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
+
+    final controller = Get.find<ProductController>();
     
-    // (Kita tidak perlu cek User ID lagi, karena produk sudah ada)
+    final updatedProduct = product.copyWith(
+      name: _nameController.text,
+      capitalPrice: double.tryParse(_capitalPriceController.text) ?? 0.0,
+      sellingPrice: double.tryParse(_sellingPriceController.text) ?? 0.0,
+      stock: int.tryParse(_stockController.text) ?? 0,
+      category: _categoryController.text.isNotEmpty ? _categoryController.text : null,
+      updatedAt: DateTime.now(),
+    );
 
-    setState(() { _isLoading = true; });
-
-    try {
-      final updatedProduct = widget.product.copyWith(
-        name: _nameController.text,
-        capitalPrice: double.tryParse(_capitalPriceController.text) ?? 0.0,
-        sellingPrice: double.tryParse(_sellingPriceController.text) ?? 0.0,
-        stock: int.tryParse(_stockController.text) ?? 0,
-        category: _categoryController.text.isNotEmpty ? _categoryController.text : null, // <-- TAMBAHKAN INI
-        updatedAt: DateTime.now(),
-      );
-
-      // Panggil repository untuk UPDATE
-      await ref.read(productRepositoryProvider).updateProduct(updatedProduct);
-
-      if (mounted) {
-        context.pop(); // Kembali ke halaman list produk
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Gagal mengupdate produk: $e")),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() { _isLoading = false; });
-      }
-    }
+    await controller.updateProduct(updatedProduct);
   }
 
   Future<void> _delete() async {
-    // 1. Tampilkan dialog konfirmasi
-    final bool? confirmed = await showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Konfirmasi Hapus"),
-        content: Text("Anda yakin ingin menghapus produk '${widget.product.name}'?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false), // Batal
-            child: const Text("Batal"),
-          ),
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            onPressed: () => Navigator.of(ctx).pop(true), // Ya, Hapus
-            child: const Text("Hapus"),
-          ),
-        ],
-      ),
-    );
-
-    // 2. Jika user tidak konfirmasi, jangan lakukan apa-apa
-    if (confirmed == null || !confirmed) {
-      return;
-    }
-
-    // 3. Jika dikonfirmasi, panggil repository
-    setState(() { _isLoading = true; });
-
-    try {
-      // Panggil soft delete
-      await ref.read(productRepositoryProvider).deleteProduct(widget.product.id!);
-      
-      if (mounted) {
-        // Kembali ke halaman list
-        context.pop(); 
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Gagal menghapus produk: $e")),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() { _isLoading = false; });
-      }
-    }
+    final controller = Get.find<ProductController>();
+    await controller.deleteProduct(product.id!);
   }
 
   @override
   Widget build(BuildContext context) {
+    final controller = Get.find<ProductController>();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Edit Produk"),
         actions: [
-          // Tombol Simpan
-          if (!_isLoading) ...[
-            // Tombol Simpan
-            IconButton(
-              icon: const Icon(Icons.save),
-              onPressed: _update,
-            ),
-            // TOMBOL HAPUS BARU
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              color: Colors.red, // Beri warna merah
-              onPressed: _delete,
-            ),
-          ] else
-            // Tampilkan loading di AppBar
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: CircularProgressIndicator(color: Colors.white),
-            ),
+          Obx(() {
+            if (controller.isLoading.value) {
+              return const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: CircularProgressIndicator(color: Colors.white),
+              );
+            }
+            
+            return Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.save),
+                  onPressed: _update,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  color: Colors.red,
+                  onPressed: _delete,
+                ),
+              ],
+            );
+          }),
         ],
       ),
       body: Form(
@@ -172,7 +110,6 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16.0),
           children: [
-            // Nama Produk
             TextFormField(
               controller: _nameController,
               decoration: const InputDecoration(
@@ -193,10 +130,7 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
                 prefixIcon: Icon(Icons.category),
               ),
             ),
-            // --- AKHIR TAMBAHAN ---
-            
             const SizedBox(height: 16),
-            // Harga Modal
             TextFormField(
               controller: _capitalPriceController,
               decoration: const InputDecoration(
@@ -211,7 +145,6 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
                   : null,
             ),
             const SizedBox(height: 16),
-            // Harga Jual
             TextFormField(
               controller: _sellingPriceController,
               decoration: const InputDecoration(
@@ -226,7 +159,6 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
                   : null,
             ),
             const SizedBox(height: 16),
-            // Stok
             TextFormField(
               controller: _stockController,
               decoration: const InputDecoration(

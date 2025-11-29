@@ -51,48 +51,7 @@ final router = GoRouter(
           path: 'add',
           builder: (context, state) => const AddProductScreen(),
         ),
-        // 4. TAMBAHKAN RUTE EDIT DINAMIS
-        GoRoute(
-          path: 'edit/:id', // ':id' adalah parameter
-          builder: (context, state) {
-            // Ambil ID dari parameter URL
-            final productId = state.pathParameters['id']!;
-
-            // Kita butuh ProviderScope untuk 'read' provider di dalam builder
-            return ProviderScope(
-              child: Consumer(
-                // Consumer agar kita bisa 'read'
-                builder: (context, ref, child) {
-                  // Ambil data produk dari provider list
-                  final productAsync = ref.read(productsProvider);
-
-                  // Cari produk spesifik berdasarkan ID
-                  Product? product; // Deklarasikan sebagai nullable
-                  try {
-                    // Coba cari produknya
-                    product = productAsync.valueOrNull?.firstWhere(
-                      (p) => p.id == productId,
-                      // Hapus 'orElse'
-                    );
-                  } catch (e) {
-                    // Jika firstWhere gagal (StateError), set produk ke null
-                    product = null;
-                  }
-
-                  if (product == null) {
-                    return const Scaffold(
-                      body: Center(child: Text("Produk tidak ditemukan")),
-                    );
-                  }
-
-                  // Kirim produk yang ditemukan ke EditScreen
-                  return EditProductScreen(product: product);
-                },
-              ),
-            );
-          },
-        ),
-      ],
+      ]   
     ),
     GoRoute(
       path: '/customers',
@@ -103,35 +62,35 @@ final router = GoRouter(
           builder: (context, state) => const AddCustomerScreen(),
         ),
         // RUTE BARU: EDIT CUSTOMER
-        GoRoute(
-          path: 'edit/:id',
-          builder: (context, state) {
-            final customerId = state.pathParameters['id']!;
-            return ProviderScope(
-              child: Consumer(
-                builder: (context, ref, child) {
-                  // Pakai READ, bukan WATCH (agar tidak crash saat delete)
-                  final customersAsync = ref.read(customersProvider);
-                  Customer? customer;
-                  try {
-                    customer = customersAsync.valueOrNull?.firstWhere(
-                      (c) => c.id == customerId,
-                    );
-                  } catch (_) {
-                    customer = null;
-                  }
+        // GoRoute(
+        //   path: 'edit/:id',
+        //   builder: (context, state) {
+        //     final customerId = state.pathParameters['id']!;
+        //     return ProviderScope(
+        //       child: Consumer(
+        //         builder: (context, ref, child) {
+        //           // Pakai READ, bukan WATCH (agar tidak crash saat delete)
+        //           final customersAsync = ref.read(customersProvider);
+        //           Customer? customer;
+        //           try {
+        //             customer = customersAsync.valueOrNull?.firstWhere(
+        //               (c) => c.id == customerId,
+        //             );
+        //           } catch (_) {
+        //             customer = null;
+        //           }
 
-                  if (customer == null) {
-                    return const Scaffold(
-                      body: Center(child: Text("Pelanggan tidak ditemukan")),
-                    );
-                  }
-                  return EditCustomerScreen(customer: customer);
-                },
-              ),
-            );
-          },
-        ),
+        //           if (customer == null) {
+        //             return const Scaffold(
+        //               body: Center(child: Text("Pelanggan tidak ditemukan")),
+        //             );
+        //           }
+        //           return EditCustomerScreen(customer: customer);
+        //         },
+        //       ),
+        //     );
+        //   },
+        // ),
       ],
     ),
     GoRoute(
@@ -147,36 +106,36 @@ final router = GoRouter(
           builder: (context, state) => const AddExpenseScreen(),
         ),
         // --- TAMBAHKAN RUTE EDIT INI ---
-        GoRoute(
-          path: 'edit/:id',
-          builder: (context, state) {
-            final expenseId = state.pathParameters['id']!;
-            return ProviderScope(
-              child: Consumer(
-                builder: (context, ref, child) {
-                  // Kita pakai .read agar tidak crash saat delete
-                  final expensesAsync = ref.read(expensesProvider);
-                  Expense? expense;
-                  try {
-                    expense = expensesAsync.valueOrNull?.firstWhere(
-                      (e) => e.id == expenseId,
-                    );
-                  } catch (_) {
-                    expense = null;
-                  }
+        // GoRoute(
+        //   path: 'edit/:id',
+        //   builder: (context, state) {
+        //     final expenseId = state.pathParameters['id']!;
+        //     return ProviderScope(
+        //       child: Consumer(
+        //         builder: (context, ref, child) {
+        //           // Kita pakai .read agar tidak crash saat delete
+        //           final expensesAsync = ref.read(expensesProvider);
+        //           Expense? expense;
+        //           try {
+        //             expense = expensesAsync.valueOrNull?.firstWhere(
+        //               (e) => e.id == expenseId,
+        //             );
+        //           } catch (_) {
+        //             expense = null;
+        //           }
 
-                  if (expense == null) {
-                    return const Scaffold(
-                      body: Center(child: Text("Pengeluaran tidak ditemukan")),
-                    );
-                  }
-                  return EditExpenseScreen(expense: expense);
-                },
-              ),
-            );
-          },
-        ),
-        // --- AKHIR TAMBAHAN ---
+        //           if (expense == null) {
+        //             return const Scaffold(
+        //               body: Center(child: Text("Pengeluaran tidak ditemukan")),
+        //             );
+        //           }
+        //           return EditExpenseScreen(expense: expense);
+        //         },
+        //       ),
+        //     );
+        //   },
+        // ),
+        // // --- AKHIR TAMBAHAN ---
       ],
     ),
     // Halaman Laporan (placeholder)

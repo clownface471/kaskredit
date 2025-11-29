@@ -1,117 +1,104 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:kaskredit_1/features/auth/presentation/providers/auth_providers.dart';
-import 'package:kaskredit_1/features/expenses/data/expense_repository.dart';
+import 'package:get/get.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
+import 'package:kaskredit_1/features/expenses/presentation/controllers/expense_controller.dart';
 import 'package:kaskredit_1/shared/models/expense.dart';
 
-class AddExpenseScreen extends ConsumerStatefulWidget {
+class AddExpenseScreen extends StatefulWidget {
   const AddExpenseScreen({super.key});
 
   @override
-  ConsumerState<AddExpenseScreen> createState() => _AddExpenseScreenState();
+  State<AddExpenseScreen> createState() => _AddExpenseScreenState();
 }
 
-class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
+class _AddExpenseScreenState extends State<AddExpenseScreen> {
   final _formKey = GlobalKey<FormState>();
-  bool _isLoading = false;
-
+  
   final _descriptionController = TextEditingController();
   final _amountController = TextEditingController();
-  final _categoryController = TextEditingController();
-  final _notesController = TextEditingController();
-
+  final _dateController = TextEditingController();
+  
   DateTime _selectedDate = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    _dateController.text = DateFormat('d MMM yyyy').format(_selectedDate);
+  }
 
   @override
   void dispose() {
     _descriptionController.dispose();
     _amountController.dispose();
-    _categoryController.dispose();
-    _notesController.dispose();
+    _dateController.dispose();
     super.dispose();
   }
 
-  Future<void> _selectDate() async {
+  Future<void> _selectDate(BuildContext context) async {
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
     );
-    if (picked != null) {
-      setState(() => _selectedDate = picked);
+    
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+        _dateController.text = DateFormat('d MMM yyyy').format(_selectedDate);
+      });
     }
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final userId = ref.read(currentUserProvider).value?.id;
+    final controller = Get.find<ExpenseController>();
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    
     if (userId == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Error: User tidak login.")),
-        );
-      }
+      Get.snackbar(
+        'Error',
+        'User tidak terautentikasi',
+        snackPosition: SnackPosition.BOTTOM,
+      );
       return;
     }
 
-    setState(() => _isLoading = true);
+    final expense = Expense(
+      userId: userId,
+      description: _descriptionController.text,
+      amount: double.tryParse(_amountController.text) ?? 0.0,
+      expenseDate: _selectedDate,
+      createdAt: DateTime.now(),
+    );
 
-    try {
-      final newExpense = Expense(
-        userId: userId,
-        description: _descriptionController.text.trim(),
-        amount: double.parse(_amountController.text),
-        category: _categoryController.text.trim().isEmpty
-            ? null
-            : _categoryController.text.trim(),
-        notes: _notesController.text.trim().isEmpty
-            ? null
-            : _notesController.text.trim(),
-        expenseDate: _selectedDate,
-        createdAt: DateTime.now(),
-      );
-
-      await ref.read(expenseRepositoryProvider).addExpense(newExpense);
-
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Pengeluaran berhasil ditambahkan"),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Gagal menyimpan: $e"),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+    await controller.addExpense(expense);
   }
 
   @override
   Widget build(BuildContext context) {
+    final controller = Get.find<ExpenseController>();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Tambah Pengeluaran"),
         actions: [
-          if (!_isLoading)
-            IconButton(icon: const Icon(Icons.save), onPressed: _submit)
-          else
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: CircularProgressIndicator(color: Colors.white),
-            ),
+          Obx(() {
+            if (controller.isLoading.value) {
+              return const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: CircularProgressIndicator(color: Colors.white),
+              );
+            }
+            
+            return IconButton(
+              icon: const Icon(Icons.save),
+              onPressed: _submit,
+            );
+          }),
         ],
       ),
       body: Form(
@@ -119,22 +106,20 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16.0),
           children: [
-            // Deskripsi
             TextFormField(
               controller: _descriptionController,
               decoration: const InputDecoration(
-                labelText: "Deskripsi Pengeluaran (Wajib)",
+                labelText: "Deskripsi (Cth: Bayar Listrik)",
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.description),
-                hintText: "Contoh: Bayar Listrik Bulan Ini",
               ),
-              validator: (value) => (value == null || value.trim().isEmpty)
+              validator: (value) => (value == null || value.isEmpty)
                   ? "Deskripsi tidak boleh kosong"
                   : null,
+              textCapitalization: TextCapitalization.sentences,
             ),
             const SizedBox(height: 16),
-
-            // Jumlah
+            
             TextFormField(
               controller: _amountController,
               decoration: const InputDecoration(
@@ -144,57 +129,21 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
               ),
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return "Jumlah tidak boleh kosong";
-                }
-                final amount = double.tryParse(value);
-                if (amount == null || amount <= 0) {
-                  return "Masukkan jumlah yang valid";
-                }
-                return null;
-              },
+              validator: (value) => (value == null || value.isEmpty)
+                  ? "Jumlah tidak boleh kosong"
+                  : null,
             ),
             const SizedBox(height: 16),
-
-            // Kategori
+            
             TextFormField(
-              controller: _categoryController,
+              controller: _dateController,
               decoration: const InputDecoration(
-                labelText: "Kategori (Opsional)",
+                labelText: "Tanggal Pengeluaran",
                 border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.category),
-                hintText: "Contoh: Operasional, Gaji, Utilitas",
+                prefixIcon: Icon(Icons.calendar_month),
               ),
-            ),
-            const SizedBox(height: 16),
-
-            // Tanggal
-            InkWell(
-              onTap: _selectDate,
-              child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: "Tanggal Pengeluaran",
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.calendar_today),
-                ),
-                child: Text(
-                  "${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}",
-                  style: const TextStyle(fontSize: 16),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Catatan
-            TextFormField(
-              controller: _notesController,
-              decoration: const InputDecoration(
-                labelText: "Catatan (Opsional)",
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.note),
-              ),
-              maxLines: 3,
+              readOnly: true,
+              onTap: () => _selectDate(context),
             ),
           ],
         ),

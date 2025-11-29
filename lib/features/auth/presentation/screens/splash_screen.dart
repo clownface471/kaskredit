@@ -1,38 +1,54 @@
 import 'package:flutter/material.dart';
-// HAPUS SEMUA IMPORT RIVERPOD DAN GO_ROUTER
-// import 'package:flutter_riverpod/flutter_riverpod.dart';
-// import 'package:go_router/go_router.dart';
-// import '../providers/auth_providers.dart';
+import 'package:get/get.dart';
+import 'package:kaskredit_1/features/auth/presentation/controllers/auth_controller.dart';
 
-// UBAH JADI STATELESSWIDGET BIASA
 class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // HAPUS SEMUA BLOK ref.listen(...)
-    // Logika navigasi sudah pindah ke app.dart
+    // Initialize AuthController - ini akan trigger auto navigation
+    Get.put(AuthController());
 
-    // Tampilkan UI Splash Screen
-    return const Scaffold(
+    return Scaffold(
+      backgroundColor: Get.theme.colorScheme.primary,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.storefront, size: 100, color: Colors.blue),
-            SizedBox(height: 24),
-            Text(
-              "KasKredit",
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+            // App Icon/Logo
+            Icon(
+              Icons.store,
+              size: 100,
+              color: Colors.white,
             ),
-            Text(
-              "Kasir & Manajemen Utang",
-              style: TextStyle(fontSize: 16),
+            const SizedBox(height: 24),
+            
+            // App Name
+            const Text(
+              'KasKredit',
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
-            SizedBox(height: 32),
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text("v1.0.0"),
+            const SizedBox(height: 8),
+            
+            // Tagline
+            const Text(
+              'Sistem Kasir & Kredit',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.white70,
+              ),
+            ),
+            const SizedBox(height: 48),
+            
+            // Loading indicator
+            const CircularProgressIndicator(
+              color: Colors.white,
+            ),
           ],
         ),
       ),
