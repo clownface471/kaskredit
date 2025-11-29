@@ -1,10 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../shared/models/product.dart';
-
-part 'product_repository.g.dart';
 
 class ProductRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -54,9 +49,4 @@ class ProductRepository {
       throw Exception('Gagal menghapus produk: $e');
     }
   }
-}
-
-@Riverpod(keepAlive: true)
-ProductRepository productRepository(Ref ref) {
-  return ProductRepository();
 }

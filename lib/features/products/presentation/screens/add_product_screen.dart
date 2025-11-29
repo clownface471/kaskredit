@@ -1,28 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:kaskredit_1/features/auth/presentation/providers/auth_providers.dart';
-import 'package:kaskredit_1/features/products/data/product_repository.dart';
+import 'package:get/get.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:kaskredit_1/features/products/presentation/controllers/product_controller.dart';
 import 'package:kaskredit_1/shared/models/product.dart';
 
-class AddProductScreen extends ConsumerStatefulWidget {
+class AddProductScreen extends StatefulWidget {
   const AddProductScreen({super.key});
 
   @override
-  ConsumerState<AddProductScreen> createState() => _AddProductScreenState();
+  State<AddProductScreen> createState() => _AddProductScreenState();
 }
 
-class _AddProductScreenState extends ConsumerState<AddProductScreen> {
+class _AddProductScreenState extends State<AddProductScreen> {
   final _formKey = GlobalKey<FormState>();
-  bool _isLoading = false;
-
-  // Controller untuk setiap field
+  
   final _nameController = TextEditingController();
   final _capitalPriceController = TextEditingController();
   final _sellingPriceController = TextEditingController();
   final _stockController = TextEditingController();
   final _categoryController = TextEditingController();
+
+  // PERBAIKAN: Gunakan Get.put() agar aman saat Hot Restart atau reload halaman
+  final ProductController controller = Get.put(ProductController());
 
   @override
   void dispose() {
@@ -35,52 +35,30 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
   }
 
   Future<void> _submit() async {
-    // 1. Validasi form
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    // 2. Dapatkan user ID
-    final userId = ref.read(currentUserProvider).value?.id;
+    final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Error: User tidak ditemukan.")),
-      );
+      Get.snackbar("Error", "User tidak ditemukan", 
+        snackPosition: SnackPosition.BOTTOM, margin: const EdgeInsets.all(16));
       return;
     }
 
-    setState(() { _isLoading = true; });
+    final newProduct = Product(
+      userId: userId,
+      name: _nameController.text,
+      capitalPrice: double.tryParse(_capitalPriceController.text) ?? 0.0,
+      sellingPrice: double.tryParse(_sellingPriceController.text) ?? 0.0,
+      stock: int.tryParse(_stockController.text) ?? 0,
+      category: _categoryController.text.isNotEmpty ? _categoryController.text : null,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
 
-    try {
-      final newProduct = Product(
-        userId: userId,
-        name: _nameController.text,
-        capitalPrice: double.tryParse(_capitalPriceController.text) ?? 0.0,
-        sellingPrice: double.tryParse(_sellingPriceController.text) ?? 0.0,
-        stock: int.tryParse(_stockController.text) ?? 0,
-        category: _categoryController.text.isNotEmpty ? _categoryController.text : null, // <-- TAMBAHKAN INI
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-
-      // 4. Panggil repository untuk menyimpan ke Firestore
-      await ref.read(productRepositoryProvider).addProduct(newProduct);
-
-      // 5. Kembali ke halaman list produk
-      if (mounted) {
-        context.pop();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Gagal menyimpan produk: $e")),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() { _isLoading = false; });
-      }
-    }
+    await controller.addProduct(newProduct);
+    // Get.back() sudah dihandle di controller atau otomatis oleh navigasi stack
   }
 
   @override
@@ -89,16 +67,18 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
       appBar: AppBar(
         title: const Text("Tambah Produk Baru"),
         actions: [
-          // Tombol Simpan
-          _isLoading
-              ? const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: CircularProgressIndicator(color: Colors.white),
-                )
-              : IconButton(
-                  icon: const Icon(Icons.save),
-                  onPressed: _submit,
-                ),
+          Obx(() {
+            if (controller.isLoading.value) {
+              return const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: CircularProgressIndicator(color: Colors.white),
+              );
+            }
+            return IconButton(
+              icon: const Icon(Icons.save),
+              onPressed: _submit,
+            );
+          }),
         ],
       ),
       body: Form(
@@ -106,7 +86,6 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16.0),
           children: [
-            // Nama Produk
             TextFormField(
               controller: _nameController,
               decoration: const InputDecoration(
@@ -127,7 +106,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                 prefixIcon: Icon(Icons.category),
               ),
             ),
-            // Harga Modal
+            const SizedBox(height: 16),
             TextFormField(
               controller: _capitalPriceController,
               decoration: const InputDecoration(
@@ -142,7 +121,6 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                   : null,
             ),
             const SizedBox(height: 16),
-            // Harga Jual
             TextFormField(
               controller: _sellingPriceController,
               decoration: const InputDecoration(
@@ -157,7 +135,6 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                   : null,
             ),
             const SizedBox(height: 16),
-            // Stok
             TextFormField(
               controller: _stockController,
               decoration: const InputDecoration(

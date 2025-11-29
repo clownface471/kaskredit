@@ -21,9 +21,6 @@ Product _$ProductFromJson(Map<String, dynamic> json) {
 
 /// @nodoc
 mixin _$Product {
-  // INI PERBAIKANNYA:
-  // 1. Buat jadi nullable (String?)
-  // 2. Kita kembali pakai 'includeFromJson: false' sesuai saran linter.
   @JsonKey(includeFromJson: false, includeToJson: false)
   String? get id => throw _privateConstructorUsedError;
   String get userId => throw _privateConstructorUsedError;
@@ -301,9 +298,6 @@ class _$ProductImpl implements _Product {
   factory _$ProductImpl.fromJson(Map<String, dynamic> json) =>
       _$$ProductImplFromJson(json);
 
-  // INI PERBAIKANNYA:
-  // 1. Buat jadi nullable (String?)
-  // 2. Kita kembali pakai 'includeFromJson: false' sesuai saran linter.
   @override
   @JsonKey(includeFromJson: false, includeToJson: false)
   final String? id;
@@ -423,9 +417,6 @@ abstract class _Product implements Product {
 
   factory _Product.fromJson(Map<String, dynamic> json) = _$ProductImpl.fromJson;
 
-  // INI PERBAIKANNYA:
-  // 1. Buat jadi nullable (String?)
-  // 2. Kita kembali pakai 'includeFromJson: false' sesuai saran linter.
   @override
   @JsonKey(includeFromJson: false, includeToJson: false)
   String? get id;

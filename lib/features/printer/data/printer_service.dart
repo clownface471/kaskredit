@@ -1,12 +1,10 @@
 import 'dart:io';
 import 'package:esc_pos_printer/esc_pos_printer.dart';
 import 'package:esc_pos_utils/esc_pos_utils.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:kaskredit_1/shared/models/transaction.dart';
 import 'package:intl/intl.dart';
 
-part 'printer_service.g.dart';
+// HAPUS: import riverpod, annotation, dan part '...g.dart'
 
 class PrinterService {
   // Scan untuk printer di jaringan
@@ -15,13 +13,15 @@ class PrinterService {
     
     try {
       // Scan IP range lokal (misal: 192.168.1.1 - 192.168.1.255)
+      // Note: Ini scan sederhana, di production mungkin butuh package discovery yg lebih canggih
       for (int i = 1; i <= 255; i++) {
         final String ip = '192.168.1.$i';
         try {
+          // Timeout dipercepat biar scan gak kelamaan
           final socket = await Socket.connect(
             ip,
             9100, // Port default printer thermal
-            timeout: const Duration(milliseconds: 100),
+            timeout: const Duration(milliseconds: 50), 
           );
           devices.add(ip);
           socket.destroy();
@@ -229,7 +229,4 @@ class PrinterService {
   }
 }
 
-@Riverpod(keepAlive: true)
-PrinterService printerService(Ref ref) {
-  return PrinterService();
-}
+// HAPUS: Provider Riverpod di bagian bawah

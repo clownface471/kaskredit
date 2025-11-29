@@ -24,14 +24,12 @@ mixin _$Expense {
   @JsonKey(includeFromJson: false, includeToJson: false)
   String? get id => throw _privateConstructorUsedError;
   String get userId => throw _privateConstructorUsedError;
-  String get description =>
-      throw _privateConstructorUsedError; // Misal: "Bayar Listrik"
-  double get amount => throw _privateConstructorUsedError; // Misal: 500000
-  String? get category =>
-      throw _privateConstructorUsedError; // Misal: "Operasional"
+  String get description => throw _privateConstructorUsedError;
+  double get amount => throw _privateConstructorUsedError;
+  String? get category => throw _privateConstructorUsedError;
   String? get notes => throw _privateConstructorUsedError;
   @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
-  DateTime get expenseDate => throw _privateConstructorUsedError; // Tanggal pengeluaran
+  DateTime get expenseDate => throw _privateConstructorUsedError;
   @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
   DateTime get createdAt => throw _privateConstructorUsedError;
 
@@ -237,19 +235,15 @@ class _$ExpenseImpl implements _Expense {
   final String userId;
   @override
   final String description;
-  // Misal: "Bayar Listrik"
   @override
   final double amount;
-  // Misal: 500000
   @override
   final String? category;
-  // Misal: "Operasional"
   @override
   final String? notes;
   @override
   @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
   final DateTime expenseDate;
-  // Tanggal pengeluaran
   @override
   @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
   final DateTime createdAt;
@@ -328,16 +322,16 @@ abstract class _Expense implements Expense {
   @override
   String get userId;
   @override
-  String get description; // Misal: "Bayar Listrik"
+  String get description;
   @override
-  double get amount; // Misal: 500000
+  double get amount;
   @override
-  String? get category; // Misal: "Operasional"
+  String? get category;
   @override
   String? get notes;
   @override
   @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
-  DateTime get expenseDate; // Tanggal pengeluaran
+  DateTime get expenseDate;
   @override
   @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
   DateTime get createdAt;

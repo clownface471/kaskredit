@@ -1,9 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
-import '../../../shared/models/expense.dart'; // Import model baru
-
-part 'expense_repository.g.dart'; // Akan dibuat
+import '../../../shared/models/expense.dart';
 
 class ExpenseRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -16,7 +12,7 @@ class ExpenseRepository {
   Stream<List<Expense>> getExpenses(String userId) {
     return _expensesRef
         .where('userId', isEqualTo: userId)
-        .orderBy('expenseDate', descending: true) // Terbaru di atas
+        .orderBy('expenseDate', descending: true)
         .snapshots()
         .map(
           (snapshot) =>
@@ -35,7 +31,6 @@ class ExpenseRepository {
 
   Future<void> updateExpense(Expense expense) async {
     try {
-      // Pastikan ID tidak null
       if (expense.id == null) {
         throw Exception("ID Pengeluaran tidak valid untuk update.");
       }
@@ -53,10 +48,4 @@ class ExpenseRepository {
       throw Exception('Gagal menghapus pengeluaran: $e');
     }
   }
-}
-
-// Provider Riverpod
-@Riverpod(keepAlive: true)
-ExpenseRepository expenseRepository(Ref ref) {
-  return ExpenseRepository();
 }

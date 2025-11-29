@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:get/get.dart';
+import 'package:kaskredit_1/core/navigation/app_routes.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -19,6 +20,7 @@ class SettingsScreen extends StatelessWidget {
             subtitle: const Text("Ubah nama, alamat, dan logo toko"),
             onTap: () {
               // TODO: Implement profile screen
+              Get.snackbar("Info", "Fitur Profil belum tersedia");
             },
           ),
           ListTile(
@@ -26,7 +28,8 @@ class SettingsScreen extends StatelessWidget {
             title: const Text("Pengaturan Printer"),
             subtitle: const Text("Atur printer thermal untuk cetak struk"),
             onTap: () {
-              context.push('/settings/printer');
+              // Navigasi ke Printer Setting
+              Get.toNamed(AppRoutes.PRINTER_SETTINGS);
             },
           ),
           ListTile(
@@ -35,6 +38,7 @@ class SettingsScreen extends StatelessWidget {
             subtitle: const Text("Tambah atau hapus akun kasir"),
             onTap: () {
               // TODO: Implement cashier management
+              Get.snackbar("Info", "Fitur Manajemen Kasir belum tersedia");
             },
           ),
         ],

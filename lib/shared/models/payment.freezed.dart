@@ -24,21 +24,15 @@ mixin _$Payment {
   @JsonKey(includeFromJson: false, includeToJson: false)
   String? get id => throw _privateConstructorUsedError;
   String get userId => throw _privateConstructorUsedError;
-  String get transactionId =>
-      throw _privateConstructorUsedError; // Transaksi mana yang dibayar
+  String get transactionId => throw _privateConstructorUsedError;
   String get customerId => throw _privateConstructorUsedError;
-  String get customerName => throw _privateConstructorUsedError; // Denormalized
-  double get paymentAmount =>
-      throw _privateConstructorUsedError; // Jumlah yang dibayar
-  String get paymentMethod =>
-      throw _privateConstructorUsedError; // CASH atau TRANSFER
-  double get previousDebt =>
-      throw _privateConstructorUsedError; // Sisa utang di transaksi SEBELUM bayar
-  double get remainingDebt =>
-      throw _privateConstructorUsedError; // Sisa utang di transaksi SETELAH bayar
+  String get customerName => throw _privateConstructorUsedError;
+  double get paymentAmount => throw _privateConstructorUsedError;
+  String get paymentMethod => throw _privateConstructorUsedError;
+  double get previousDebt => throw _privateConstructorUsedError;
+  double get remainingDebt => throw _privateConstructorUsedError;
   String? get notes => throw _privateConstructorUsedError;
-  String get receivedBy =>
-      throw _privateConstructorUsedError; // Siapa kasir/owner yg terima
+  String get receivedBy => throw _privateConstructorUsedError;
   @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
   DateTime get paymentDate => throw _privateConstructorUsedError;
   @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
@@ -311,29 +305,22 @@ class _$PaymentImpl implements _Payment {
   final String userId;
   @override
   final String transactionId;
-  // Transaksi mana yang dibayar
   @override
   final String customerId;
   @override
   final String customerName;
-  // Denormalized
   @override
   final double paymentAmount;
-  // Jumlah yang dibayar
   @override
   final String paymentMethod;
-  // CASH atau TRANSFER
   @override
   final double previousDebt;
-  // Sisa utang di transaksi SEBELUM bayar
   @override
   final double remainingDebt;
-  // Sisa utang di transaksi SETELAH bayar
   @override
   final String? notes;
   @override
   final String receivedBy;
-  // Siapa kasir/owner yg terima
   @override
   @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
   final DateTime paymentDate;
@@ -436,23 +423,23 @@ abstract class _Payment implements Payment {
   @override
   String get userId;
   @override
-  String get transactionId; // Transaksi mana yang dibayar
+  String get transactionId;
   @override
   String get customerId;
   @override
-  String get customerName; // Denormalized
+  String get customerName;
   @override
-  double get paymentAmount; // Jumlah yang dibayar
+  double get paymentAmount;
   @override
-  String get paymentMethod; // CASH atau TRANSFER
+  String get paymentMethod;
   @override
-  double get previousDebt; // Sisa utang di transaksi SEBELUM bayar
+  double get previousDebt;
   @override
-  double get remainingDebt; // Sisa utang di transaksi SETELAH bayar
+  double get remainingDebt;
   @override
   String? get notes;
   @override
-  String get receivedBy; // Siapa kasir/owner yg terima
+  String get receivedBy;
   @override
   @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
   DateTime get paymentDate;

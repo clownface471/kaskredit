@@ -27,8 +27,7 @@ mixin _$Customer {
   String get name => throw _privateConstructorUsedError;
   String? get phoneNumber => throw _privateConstructorUsedError;
   String? get address => throw _privateConstructorUsedError;
-  double get totalDebt =>
-      throw _privateConstructorUsedError; // Sesuai blueprint
+  double get totalDebt => throw _privateConstructorUsedError;
   String? get notes => throw _privateConstructorUsedError;
   @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
   DateTime get createdAt => throw _privateConstructorUsedError;
@@ -259,7 +258,6 @@ class _$CustomerImpl implements _Customer {
   @override
   @JsonKey()
   final double totalDebt;
-  // Sesuai blueprint
   @override
   final String? notes;
   @override
@@ -353,7 +351,7 @@ abstract class _Customer implements Customer {
   @override
   String? get address;
   @override
-  double get totalDebt; // Sesuai blueprint
+  double get totalDebt;
   @override
   String? get notes;
   @override

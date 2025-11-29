@@ -1,10 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:kaskredit_1/shared/models/dashboard_stats.dart';
 import 'package:kaskredit_1/shared/models/transaction.dart';
-
-part 'dashboard_repository.g.dart';
 
 class DashboardRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -42,12 +38,10 @@ class DashboardRepository {
             todayNewDebt += tx.remainingDebt;
           }
         } catch (e) {
-          // Skip dokumen yang corrupt/invalid
           print('Error parsing transaction ${doc.id}: $e');
         }
       }
     } catch (e) {
-      // Kalau query gagal (misal index belum ada), return default
       print('Error querying transactions: $e');
     }
 
@@ -110,9 +104,4 @@ class DashboardRepository {
       lowStockProducts: lowStockProducts,
     );
   }
-}
-
-@Riverpod(keepAlive: true)
-DashboardRepository dashboardRepository(Ref ref) {
-  return DashboardRepository();
 }

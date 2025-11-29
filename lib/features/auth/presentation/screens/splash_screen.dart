@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:kaskredit_1/features/auth/presentation/controllers/auth_controller.dart';
 
 class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Initialize AuthController - ini akan trigger auto navigation
-    Get.put(AuthController());
 
     return Scaffold(
       backgroundColor: Get.theme.colorScheme.primary,

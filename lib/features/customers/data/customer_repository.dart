@@ -1,9 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'; // <-- TAMBAHKAN IMPORT INI
-import 'package:riverpod_annotation/riverpod_annotation.dart';
-import '../../../shared/models/customer.dart'; // Ganti ke relative import
-
-part 'customer_repository.g.dart';
+import '../../../shared/models/customer.dart';
 
 class CustomerRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -48,7 +44,6 @@ class CustomerRepository {
   Future<void> deleteCustomer(String customerId) async {
     try {
       final doc = await _customersRef.doc(customerId).get();
-      // Pastikan data ada sebelum mencoba mengaksesnya
       if (!doc.exists) {
         throw Exception('Pelanggan tidak ditemukan.');
       }
@@ -64,10 +59,4 @@ class CustomerRepository {
       throw Exception('Gagal menghapus pelanggan: $e');
     }
   }
-} // <-- Pastikan closing brace ini ada (ini adalah baris ~48-50)
-
-// Provider Riverpod untuk repository
-@Riverpod(keepAlive: true)
-CustomerRepository customerRepository(Ref ref) { // <-- Ganti ke Ref
-  return CustomerRepository();
 }

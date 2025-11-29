@@ -1,10 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:kaskredit_1/shared/models/payment.dart';
-import 'package:kaskredit_1/shared/models/transaction.dart'; // Kita butuh ini
-
-part 'payment_repository.g.dart'; // Akan dibuat
+import 'package:kaskredit_1/shared/models/transaction.dart';
 
 class PaymentRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -17,7 +13,7 @@ class PaymentRepository {
       _transactionsRef = FirebaseFirestore.instance.collection('transactions'),
       _customersRef = FirebaseFirestore.instance.collection('customers');
 
-  // === FUNGSI UTAMA: PROSES PEMBAYARAN ===
+  // === CREATE PAYMENT ===
   Future<void> processPayment({
     required String transactionId,
     required String customerId,
@@ -27,41 +23,45 @@ class PaymentRepository {
     required String customerName,
     String? notes,
   }) async {
-    // 1. Dapatkan referensi dokumen
     final transactionDocRef = _transactionsRef.doc(transactionId);
     final customerDocRef = _customersRef.doc(customerId);
-    final paymentDocRef = _paymentsRef.doc(); // Buat ID baru untuk payment
+    final paymentDocRef = _paymentsRef.doc(); 
 
-    // 2. Gunakan batch write
     final batch = _firestore.batch();
 
     try {
-      // 3. Ambil data transaksi saat ini (untuk validasi)
       final transactionSnap = await transactionDocRef.get();
       if (!transactionSnap.exists) {
         throw Exception("Transaksi tidak ditemukan!");
       }
       final transaction = Transaction.fromFirestore(transactionSnap);
 
-      // 4. Validasi pembayaran
       if (paymentAmount <= 0) {
         throw Exception("Jumlah bayar tidak boleh nol.");
       }
-      // Tambahkan toleransi 0.01 untuk error floating point
-      if (paymentAmount > transaction.remainingDebt + 0.01) {
+      
+      // PERBAIKAN 1: Naikkan toleransi menjadi 1.0 (atau lebih)
+      // Ini untuk mengakomodasi pembulatan tampilan (contoh: 0.7 dibulatkan jadi 1 di UI)
+      if (paymentAmount > transaction.remainingDebt + 1.0) {
         throw Exception("Jumlah bayar melebihi sisa utang.");
       }
 
-      // 5. Hitung nilai baru
-      final newRemainingDebt = transaction.remainingDebt - paymentAmount;
+      // PERBAIKAN 2: Pastikan sisa utang tidak minus (Clamp to 0)
+      // Jika bayar 101 untuk utang 100.5, sisa utang jadi 0 (bukan -0.5)
+      double newRemainingDebt = transaction.remainingDebt - paymentAmount;
+      if (newRemainingDebt < 0) {
+        newRemainingDebt = 0;
+      }
+
       final newPaidAmount = transaction.paidAmount + paymentAmount;
-      // Tentukan status baru (lunas atau masih sebagian)
-      final newStatus = (newRemainingDebt < 0.01)
+      
+      // PERBAIKAN 3: Cek status lunas
+      final newStatus = (newRemainingDebt <= 0) // Gunakan <= 0 biar aman
           ? PaymentStatus.PAID
           : PaymentStatus.PARTIAL;
 
-      // 6. Buat objek Payment baru
       final newPayment = Payment(
+        id: paymentDocRef.id,
         userId: userId,
         transactionId: transactionId,
         customerId: customerId,
@@ -71,41 +71,35 @@ class PaymentRepository {
         previousDebt: transaction.remainingDebt,
         remainingDebt: newRemainingDebt,
         notes: notes,
-        receivedBy: userId, // Asumsi user yg login yg terima
+        receivedBy: userId,
         paymentDate: DateTime.now(),
         createdAt: DateTime.now(),
       );
 
-      // 7. Tambahkan 3 operasi ke batch:
-      // A. Buat catatan Payment
+      // 1. Simpan Payment
       batch.set(paymentDocRef, newPayment.toJson());
 
-      // B. Update Transaksi
+      // 2. Update Transaksi
       batch.update(transactionDocRef, {
         'remainingDebt': newRemainingDebt,
         'paidAmount': newPaidAmount,
-        'paymentStatus': newStatus.name, // "PAID" or "PARTIAL"
+        'paymentStatus': newStatus.name,
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      // C. Update Customer
+      // 3. Update Saldo Utang Customer
       batch.update(customerDocRef, {
-        'totalDebt': FieldValue.increment(
-          -paymentAmount,
-        ), // Kurangi total utang
+        'totalDebt': FieldValue.increment(-paymentAmount), 
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      // 8. Eksekusi batch
       await batch.commit();
     } catch (e) {
-      // Tangkap error validasi atau eksekusi
       throw Exception("Gagal memproses pembayaran: $e");
     }
   }
 
-  // === READ ===
-  // (Nanti kita pakai ini untuk riwayat)
+  // === READ METHODS ===
   Stream<List<Payment>> getPaymentsByCustomer(String customerId) {
     return _paymentsRef
         .where('customerId', isEqualTo: customerId)
@@ -120,18 +114,12 @@ class PaymentRepository {
   Stream<List<Payment>> getAllPayments(String userId) {
     return _paymentsRef
         .where('userId', isEqualTo: userId)
-        .orderBy('paymentDate', descending: true) // Terbaru di atas
-        .limit(100) // Batasi 100 pembayaran terakhir
+        .orderBy('paymentDate', descending: true)
+        .limit(100) 
         .snapshots()
         .map(
           (snapshot) =>
               snapshot.docs.map((doc) => Payment.fromFirestore(doc)).toList(),
         );
   }
-}
-
-// Provider Riverpod
-@Riverpod(keepAlive: true)
-PaymentRepository paymentRepository(Ref ref) {
-  return PaymentRepository();
 }

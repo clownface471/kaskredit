@@ -1,39 +1,37 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:kaskredit_1/features/customers/presentation/providers/customer_providers.dart';
-import 'package:kaskredit_1/features/products/presentation/providers/product_providers.dart';
+import 'package:flutter/services.dart';
+import 'package:get/get.dart';
+import 'package:kaskredit_1/core/utils/formatters.dart';
+import 'package:kaskredit_1/features/customers/presentation/controllers/customer_controller.dart';
+import 'package:kaskredit_1/features/products/presentation/controllers/product_controller.dart';
+import 'package:kaskredit_1/features/transactions/presentation/controllers/cart_controller.dart';
 import 'package:kaskredit_1/features/transactions/presentation/models/cart_state.dart';
-import 'package:kaskredit_1/features/transactions/presentation/providers/cart_provider.dart';
 import 'package:kaskredit_1/shared/models/customer.dart';
 import 'package:kaskredit_1/shared/models/product.dart';
-import 'package:kaskredit_1/shared/models/transaction.dart';
-import 'package:kaskredit_1/features/transactions/data/transaction_repository.dart';
-import 'package:kaskredit_1/features/auth/presentation/providers/auth_providers.dart';
-import 'package:flutter/services.dart';
-import 'package:kaskredit_1/core/utils/formatters.dart';
-import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
-import 'package:kaskredit_1/features/printer/data/printer_service.dart';
-import 'package:kaskredit_1/features/printer/presentation/providers/printer_settings_provider.dart';
+import 'package:kaskredit_1/shared/models/transaction.dart'; 
 
-class CashierScreen extends ConsumerStatefulWidget {
+class CashierScreen extends StatefulWidget {
   const CashierScreen({super.key});
 
   @override
-  ConsumerState<CashierScreen> createState() => _CashierScreenState();
+  State<CashierScreen> createState() => _CashierScreenState();
 }
 
-class _CashierScreenState extends ConsumerState<CashierScreen> {
+class _CashierScreenState extends State<CashierScreen> {
+  // Controller Text Field
   final _searchController = TextEditingController();
-  String _searchQuery = "";
+  
+  // Inject Controllers
+  // Kita pakai Get.put agar controller dibuat jika belum ada
+  final CartController cartController = Get.put(CartController());
+  final ProductController productController = Get.put(ProductController());
+  final CustomerController customerController = Get.put(CustomerController());
 
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(() {
-      setState(() {
-        _searchQuery = _searchController.text;
-      });
-    });
+    // Reset search query saat masuk halaman
+    productController.updateSearchQuery('');
   }
 
   @override
@@ -42,39 +40,21 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
     super.dispose();
   }
 
-  void _onProductTap(Product product) {
-    try {
-      ref.read(cartProvider.notifier).addItem(product);
-      _searchController.clear();
-      FocusScope.of(context).unfocus();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    // Tonton state keranjang
-    final cartState = ref.watch(cartProvider);
-    // Tonton provider pencarian produk
-    final searchResults = ref.watch(productSearchProvider(_searchQuery));
-
     return Scaffold(
       appBar: AppBar(
         title: const Text("Kasir"),
         actions: [
-          // Tombol Reset Keranjang
           IconButton(
             icon: const Icon(Icons.delete_sweep),
-            onPressed: () => ref.read(cartProvider.notifier).clear(),
+            onPressed: () => _confirmClearCart(),
           )
         ],
       ),
       body: Column(
         children: [
-          // --- 1. SEARCH BAR ---
+          // 1. SEARCH BAR
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: TextField(
@@ -84,399 +64,288 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                 prefixIcon: Icon(Icons.search),
                 border: OutlineInputBorder(),
               ),
+              onChanged: (val) => productController.updateSearchQuery(val),
             ),
           ),
 
-          // --- 2. HASIL SEARCH ATAU LIST KERANJANG ---
+          // 2. LIST AREA (Keranjang vs Hasil Pencarian)
           Expanded(
-            child: _searchQuery.isEmpty
-                ? _buildCartView(cartState) // Tampilkan Keranjang
-                : _buildSearchView(searchResults), // Tampilkan Hasil Search
+            child: Obx(() {
+              // Jika user sedang mengetik di search bar, tampilkan hasil pencarian produk
+              if (productController.searchQuery.isNotEmpty) {
+                return _buildSearchResults();
+              }
+              
+              // Jika tidak, tampilkan isi keranjang
+              return _buildCartView();
+            }),
           ),
 
-          // --- 3. SUMMARY & PAYMENT ---
-          _buildSummary(cartState),
+          // 3. SUMMARY & CHECKOUT
+          _buildSummary(),
         ],
       ),
     );
   }
 
-  // Widget untuk menampilkan keranjang
-  Widget _buildCartView(CartState cartState) {
-    if (cartState.items.isEmpty) {
+  // --- WIDGETS ---
+
+  Widget _buildSearchResults() {
+    final products = productController.filteredProducts;
+    
+    if (productController.isLoading.value) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (products.isEmpty) {
+      return const Center(child: Text("Produk tidak ditemukan."));
+    }
+
+    return ListView.builder(
+      itemCount: products.length,
+      itemBuilder: (context, index) {
+        final product = products[index];
+        return ListTile(
+          title: Text(product.name),
+          subtitle: Text("Stok: ${product.stock}"),
+          trailing: Text(Formatters.currency.format(product.sellingPrice)),
+          onTap: () {
+            cartController.addItem(product);
+            // Opsional: Clear search setelah add
+            // _searchController.clear();
+            // productController.updateSearchQuery('');
+            // FocusScope.of(context).unfocus();
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildCartView() {
+    // Akses state dari CartController
+    final items = cartController.items;
+
+    if (items.isEmpty) {
       return const Center(child: Text("Keranjang kosong. Cari produk untuk ditambahkan."));
     }
-    
-    // Sesuai blueprint [cite: 345]
+
     return ListView.separated(
-      itemCount: cartState.items.length,
+      itemCount: items.length,
       separatorBuilder: (context, index) => const Divider(),
       itemBuilder: (context, index) {
-        final item = cartState.items[index];
+        final item = items[index];
         return ListTile(
           title: Text(item.product.name),
-          subtitle: Text("Rp ${item.product.sellingPrice} x ${item.quantity}"),
+          subtitle: Text("${Formatters.currency.format(item.product.sellingPrice)} x ${item.quantity}"),
           trailing: Text(
-            "Rp ${item.subtotal}",
+            Formatters.currency.format(item.subtotal),
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
-          onTap: () {
-            // Tampilkan dialog untuk update/hapus
-            _showUpdateQuantityDialog(item);
-          },
+          onTap: () => _showUpdateQuantityDialog(item),
         );
       },
     );
   }
 
-  // Widget untuk menampilkan hasil pencarian
-  Widget _buildSearchView(AsyncValue<List<Product>> searchResults) {
-    return searchResults.when(
-      data: (products) {
-        if (products.isEmpty) {
-          return const Center(child: Text("Produk tidak ditemukan."));
-        }
-        return ListView.builder(
-          itemCount: products.length,
-          itemBuilder: (context, index) {
-            final product = products[index];
-            return ListTile(
-              title: Text(product.name),
-              subtitle: Text("Stok: ${product.stock}"),
-              trailing: Text("Rp ${product.sellingPrice}"),
-              onTap: () => _onProductTap(product),
-            );
-          },
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, s) => Center(child: Text("Error: $e")),
-    );
-  }
-
-  // Widget untuk summary di bagian bawah
-  Widget _buildSummary(CartState cartState) {
+  Widget _buildSummary() {
     return Card(
       elevation: 8,
       margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        // Ubah jadi ListView agar bisa di-scroll saat keyboard muncul
-        child: ListView(
-          shrinkWrap: true, // Agar pas dengan konten
-          children: [
-            // --- 1. Total ---
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text("TOTAL", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                Text(
-                  Formatters.currency.format(cartState.totalAmount),
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blue),
-                ),
-              ],
-            ),
-            const Divider(height: 24),
-            
-            // --- 2. Tipe Pembayaran ---
-            Row(
-              children: [
-                const Text("Bayar:"),
-                const SizedBox(width: 16),
-                ChoiceChip(
-                  label: const Text("Tunai"),
-                  selected: cartState.paymentType == PaymentType.CASH,
-                  onSelected: (_) => ref.read(cartProvider.notifier).setPaymentType(PaymentType.CASH),
-                ),
-                const SizedBox(width: 8),
-                ChoiceChip(
-                  label: const Text("Kredit"),
-                  selected: cartState.paymentType == PaymentType.CREDIT,
-                  onSelected: (_) => ref.read(cartProvider.notifier).setPaymentType(PaymentType.CREDIT),
-                ),
-              ],
-            ),
-            
-            // --- 3. FORM KREDIT (Baru) ---
-            // Muncul jika tipe-nya KREDIT
-            if (cartState.paymentType == PaymentType.CREDIT) ...[
-              const SizedBox(height: 16),
-              _buildCustomerSelector(), // Pilihan Pelanggan
-              const SizedBox(height: 16),
-              // Form DP, Bunga, Tenor
+      child: Obx(() {
+        // Kita bungkus dengan Obx agar UI update saat cart berubah
+        final total = cartController.totalAmount;
+        final type = cartController.paymentType;
+        
+        return Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              // Total
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Expanded(
-                    child: TextFormField(
-                      decoration: const InputDecoration(labelText: "DP (Rp)", border: OutlineInputBorder()),
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      onChanged: (value) => ref.read(cartProvider.notifier).setDownPayment(value),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextFormField(
-                      decoration: const InputDecoration(labelText: "Bunga (%)", border: OutlineInputBorder()),
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      onChanged: (value) => ref.read(cartProvider.notifier).setInterestRate(value),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextFormField(
-                      decoration: const InputDecoration(labelText: "Tenor (Bln)", border: OutlineInputBorder()),
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      onChanged: (value) => ref.read(cartProvider.notifier).setTenor(value),
-                    ),
+                  const Text("TOTAL", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  Text(
+                    Formatters.currency.format(total),
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blue),
                   ),
                 ],
               ),
               const Divider(height: 24),
-              // Info Kalkulasi
-              _InfoRow(label: "Total + Bunga:", value: Formatters.currency.format(cartState.totalWithInterest)),
-              _InfoRow(label: "Sisa Utang:", value: Formatters.currency.format(cartState.remainingDebt)),
-              _InfoRow(
-                label: "Cicilan / Bulan:",
-                value: Formatters.currency.format(cartState.monthlyInstallment),
-                isBold: true,
+
+              // Payment Type Selector
+              Row(
+                children: [
+                  const Text("Bayar:"),
+                  const SizedBox(width: 16),
+                  ChoiceChip(
+                    label: const Text("Tunai"),
+                    selected: type == PaymentType.CASH,
+                    onSelected: (_) => cartController.setPaymentType(PaymentType.CASH),
+                  ),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: const Text("Kredit"),
+                    selected: type == PaymentType.CREDIT,
+                    onSelected: (_) => cartController.setPaymentType(PaymentType.CREDIT),
+                  ),
+                ],
+              ),
+
+              // Form Kredit (Jika dipilih)
+              if (type == PaymentType.CREDIT) ...[
+                const SizedBox(height: 16),
+                _buildCustomerDropdown(),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(child: _buildNumberInput("DP (Rp)", (val) => cartController.setDownPayment(val))),
+                    const SizedBox(width: 8),
+                    Expanded(child: _buildNumberInput("Bunga (%)", (val) => cartController.setInterestRate(val))),
+                    const SizedBox(width: 8),
+                    Expanded(child: _buildNumberInput("Tenor (Bln)", (val) => cartController.setTenor(val))),
+                  ],
+                ),
+                const Divider(height: 24),
+                _InfoRow(label: "Total + Bunga:", value: Formatters.currency.format(cartController.totalWithInterest)),
+                _InfoRow(label: "Sisa Utang:", value: Formatters.currency.format(cartController.remainingDebt)),
+                _InfoRow(label: "Cicilan / Bulan:", value: Formatters.currency.format(cartController.monthlyInstallment), isBold: true),
+              ],
+
+              const SizedBox(height: 16),
+
+              // Tombol Checkout
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white
+                  ),
+                  onPressed: cartController.isLoading.value ? null : _processCheckout,
+                  child: cartController.isLoading.value 
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text("CHECKOUT", style: TextStyle(fontSize: 18)),
+                ),
               ),
             ],
-            
-            const SizedBox(height: 16),
-            
-            // --- 4. Tombol Checkout ---
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white
-                ),
-                onPressed: (cartState.items.isEmpty || (cartState.paymentType == PaymentType.CREDIT && cartState.selectedCustomer == null))
-                  ? null 
-                  : _checkout,
-                child: const Text("CHECKOUT", style: TextStyle(fontSize: 18)),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Widget untuk dropdown pelanggan
-  Widget _buildCustomerSelector() {
-    final customersAsync = ref.watch(customersProvider);
-    final selectedCustomer = ref.watch(cartProvider).selectedCustomer;
-
-    return customersAsync.when(
-      data: (customers) => DropdownButtonFormField<Customer>(
-        value: selectedCustomer,
-        hint: const Text("Pilih Pelanggan... (Wajib)"),
-        decoration: const InputDecoration(prefixIcon: Icon(Icons.person)),
-        items: customers.map((customer) {
-          return DropdownMenuItem(
-            value: customer,
-            child: Text(customer.name),
-          );
-        }).toList(),
-        onChanged: (customer) {
-          ref.read(cartProvider.notifier).selectCustomer(customer);
-        },
-      ),
-      loading: () => const LinearProgressIndicator(),
-      error: (e, s) => Text("Error memuat pelanggan: $e"),
-    );
-  }
-
-  // --- LOGIKA DIALOG DAN CHECKOUT ---
-
-  // Dialog untuk update jumlah
-  void _showUpdateQuantityDialog(CartItem item) {
-    final qtyController = TextEditingController(text: item.quantity.toString());
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(item.product.name),
-        content: TextField(
-          controller: qtyController,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: "Jumlah"),
-        ),
-        actions: [
-          // Tombol Hapus
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            onPressed: () {
-              ref.read(cartProvider.notifier).removeItem(item.product.id!);
-              Navigator.of(ctx).pop();
-            },
-            child: const Text("Hapus dari Keranjang"),
           ),
-          // Tombol Update
+        );
+      }),
+    );
+  }
+
+  Widget _buildCustomerDropdown() {
+    // Kita gunakan data dari CustomerController
+    // Pastikan CustomerController sudah di-load datanya
+    return Obx(() {
+      final customers = customerController.customers;
+      return DropdownButtonFormField<Customer>(
+        value: cartController.selectedCustomer, // Nilai terpilih
+        hint: const Text("Pilih Pelanggan... (Wajib)"),
+        decoration: const InputDecoration(prefixIcon: Icon(Icons.person), border: OutlineInputBorder()),
+        items: customers.map((c) => DropdownMenuItem(value: c, child: Text(c.name))).toList(),
+        onChanged: (val) => cartController.selectCustomer(val),
+      );
+    });
+  }
+
+  Widget _buildNumberInput(String label, Function(String) onChanged) {
+    return TextFormField(
+      decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
+      keyboardType: TextInputType.number,
+      inputFormatters: [FilteringTextInputFormatter.digitsOnly], // atau allow decimal untuk bunga
+      onChanged: onChanged,
+    );
+  }
+
+  // --- ACTIONS ---
+
+  void _confirmClearCart() {
+    Get.defaultDialog(
+      title: "Hapus Keranjang",
+      middleText: "Yakin ingin mengosongkan keranjang?",
+      textConfirm: "Ya",
+      textCancel: "Tidak",
+      confirmTextColor: Colors.white,
+      onConfirm: () {
+        cartController.clear();
+        Get.back();
+      },
+    );
+  }
+
+  void _showUpdateQuantityDialog(CartItem item) {
+    final qtyCtrl = TextEditingController(text: item.quantity.toString());
+    Get.defaultDialog(
+      title: item.product.name,
+      content: TextField(
+        controller: qtyCtrl,
+        keyboardType: TextInputType.number,
+        decoration: const InputDecoration(labelText: "Jumlah"),
+      ),
+      textCancel: "Batal",
+      cancelTextColor: Colors.black,
+      actions: [
+        TextButton(
+          onPressed: () {
+            cartController.removeItem(item.product.id!);
+            Get.back();
+          },
+          style: TextButton.styleFrom(foregroundColor: Colors.red),
+          child: const Text("Hapus"),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            final newQty = int.tryParse(qtyCtrl.text) ?? 0;
+            cartController.updateQuantity(item.product.id!, newQty);
+            Get.back();
+          },
+          child: const Text("Simpan"),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _processCheckout() async {
+    final transaction = await cartController.checkout();
+    
+    if (transaction != null) {
+      // Jika berhasil, tampilkan dialog sukses dan opsi print
+      Get.defaultDialog(
+        title: "Transaksi Berhasil",
+        middleText: "No: ${transaction.transactionNumber}\nTotal: ${Formatters.currency.format(transaction.totalAmount)}",
+        barrierDismissible: false,
+        actions: [
           TextButton(
+            onPressed: () => Get.back(), // Tutup dialog
+            child: const Text("Tutup"),
+          ),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.print),
+            label: const Text("Cetak Struk"),
             onPressed: () {
-              try {
-                final newQty = int.tryParse(qtyController.text) ?? 0;
-                ref.read(cartProvider.notifier).updateQuantity(item.product.id!, newQty);
-                Navigator.of(ctx).pop();
-              } catch (e) {
-                Navigator.of(ctx).pop(); 
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-                );
-              }
+              Get.back(); // Tutup dialog dulu
+              // TODO: Implementasi Print Logic di sini (memanggil PrinterService)
+              Get.snackbar("Info", "Fitur print akan segera hadir");
             },
-            child: const Text("Update"),
           ),
         ],
-      ),
-    );
-  }
-
-  // Fungsi Checkout
-  Future<void> _checkout() async {
-  final cartState = ref.read(cartProvider);
-
-  final userId = ref.read(currentUserProvider).value?.id;
-  if (userId == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Error: User tidak login.")),
-    );
-    return;
-  }
-
-  try {
-    // 1. Simpan transaksi
-    await ref.read(transactionRepositoryProvider).createTransaction(cartState, userId);
-
-    // 2. Ambil transaksi terakhir untuk di-print (sebagai alternatif, return transaction dari createTransaction)
-    final lastTransaction = await _getLastTransaction(userId);
-
-    if (lastTransaction == null) {
-      throw Exception('Gagal mengambil data transaksi');
-    }
-
-    // 3. Bersihkan keranjang
-    ref.read(cartProvider.notifier).clear();
-
-    // 4. Cek apakah auto-print aktif
-    final settings = await ref.read(printerSettingsNotifierProvider.future);
-    
-    if (mounted) {
-      // 5. Tampilkan dialog sukses dengan opsi print
-      final shouldPrint = await showDialog<bool>(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Transaksi Berhasil'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('No: ${lastTransaction.transactionNumber}'),
-              Text('Total: ${Formatters.currency.format(lastTransaction.totalAmount)}'),
-              const SizedBox(height: 16),
-              if (settings.printerIp != null)
-                const Text('Cetak struk sekarang?')
-              else
-                const Text(
-                  'Printer belum dikonfigurasi.\nAtur di menu Pengaturan.',
-                  style: TextStyle(color: Colors.orange, fontSize: 12),
-                ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Tidak'),
-            ),
-            if (settings.printerIp != null)
-              ElevatedButton.icon(
-  icon: const Icon(Icons.print),
-  label: const Text('Cetak'),
-  onPressed: () => Navigator.of(ctx).pop(true),
-),
-          ],
-        ),
-      );
-
-      // 6. Print jika user memilih atau auto-print aktif
-      if (shouldPrint == true || settings.autoPrint) {
-        if (settings.printerIp != null) {
-          await _printReceipt(lastTransaction, settings);
-        }
-      }
-    }
-  } catch (e) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Gagal menyimpan transaksi: $e"),
-          backgroundColor: Colors.red,
-        ),
       );
     }
   }
 }
 
-// Fungsi helper untuk mengambil transaksi terakhir
-Future<Transaction?> _getLastTransaction(String userId) async {
-  try {
-    final snapshot = await FirebaseFirestore.instance
-        .collection('transactions')
-        .where('userId', isEqualTo: userId)
-        .orderBy('createdAt', descending: true)
-        .limit(1)
-        .get();
-    
-    if (snapshot.docs.isEmpty) return null;
-    
-    return Transaction.fromFirestore(snapshot.docs.first);
-  } catch (e) {
-    print('Error getting last transaction: $e');
-    return null;
-  }
-}
+class _InfoRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool isBold;
+  const _InfoRow({required this.label, required this.value, this.isBold = false});
 
-// Fungsi helper untuk print
-Future<void> _printReceipt(Transaction transaction, PrinterSettings settings) async {
-  // Show loading
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (ctx) => const Center(
-      child: CircularProgressIndicator(),
-    ),
-  );
-
-  final user = ref.read(currentUserProvider).value;
-  final service = ref.read(printerServiceProvider);
-
-  final success = await service.printReceipt(
-    printerIp: settings.printerIp!,
-    transaction: transaction,
-    shopName: user?.shopName ?? 'KasKredit',
-    footerNote: settings.footerNote,
-  );
-
-  // Close loading
-  if (mounted) Navigator.of(context).pop();
-
-  // Show result
-  if (mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(success ? 'Struk berhasil dicetak' : 'Gagal mencetak struk'),
-        backgroundColor: success ? Colors.green : Colors.red,
-      ),
-    );
-  }
-}
-  Widget _InfoRow({required String label, required String value, bool isBold = false}) {
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
@@ -495,6 +364,4 @@ Future<void> _printReceipt(Transaction transaction, PrinterSettings settings) as
       ),
     );
   }
-
-
 }

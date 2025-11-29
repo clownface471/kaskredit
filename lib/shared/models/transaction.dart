@@ -1,28 +1,22 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:kaskredit_1/shared/models/transaction_item.dart'; // Import sub-model kita
+import 'package:kaskredit_1/shared/models/transaction_item.dart';
 
 part 'transaction.freezed.dart';
 part 'transaction.g.dart';
 
-// Helper function untuk konversi timestamp
 DateTime _dateTimeFromTimestamp(Timestamp timestamp) => timestamp.toDate();
 Timestamp _dateTimeToTimestamp(DateTime dateTime) => Timestamp.fromDate(dateTime);
 
 DateTime? _nullableDateTimeFromTimestamp(Timestamp? timestamp) {
-  // Jika timestamp-nya null, kembalikan null
   return timestamp?.toDate();
 }
 
 Timestamp? _nullableDateTimeToTimestamp(DateTime? dateTime) {
-  // Jika dateTime-nya null, kembalikan null
   return dateTime != null ? Timestamp.fromDate(dateTime) : null;
 }
 
-// Enum untuk Status Pembayaran (sesuai blueprint [cite: 106-107])
 enum PaymentStatus { PAID, DEBT, PARTIAL }
-
-// Enum untuk Tipe Pembayaran (sesuai blueprint [cite: 108-111])
 enum PaymentType { CASH, CREDIT, TRANSFER }
 
 @freezed
@@ -33,9 +27,9 @@ class Transaction with _$Transaction {
     required String userId,
     required String transactionNumber,
     String? customerId,
-    String? customerName, // Denormalized
+    String? customerName,
     
-    required List<TransactionItem> items, // List dari sub-model
+    required List<TransactionItem> items,
     
     required double totalAmount,
     required double totalProfit,
@@ -43,9 +37,9 @@ class Transaction with _$Transaction {
     required PaymentStatus paymentStatus,
     required PaymentType paymentType,
 
-    @Default(0.0) double downPayment,  // Uang Muka (DP)
-    @Default(0.0) double interestRate, // Bunga (misal: 10 untuk 10%)
-    @Default(0) int tenor,             // Jangka waktu (misal: 3 untuk 3 bulan)
+    @Default(0.0) double downPayment,
+    @Default(0.0) double interestRate,
+    @Default(0) int tenor,
     
     @Default(0.0) double paidAmount,
     @Default(0.0) double remainingDebt,
@@ -53,7 +47,7 @@ class Transaction with _$Transaction {
     @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
     required DateTime transactionDate,
     @JsonKey(fromJson: _nullableDateTimeFromTimestamp, toJson: _nullableDateTimeToTimestamp)
-    DateTime? dueDate, // Opsional untuk kredit
+    DateTime? dueDate,
     
     String? notes,
     
@@ -65,6 +59,14 @@ class Transaction with _$Transaction {
 
   factory Transaction.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    
+    // --- FIX CRASH SERVER TIMESTAMP ---
+    // Jika null (masih proses server), pakai waktu lokal sekarang
+    if (data['createdAt'] == null) data['createdAt'] = Timestamp.now();
+    if (data['updatedAt'] == null) data['updatedAt'] = Timestamp.now();
+    if (data['transactionDate'] == null) data['transactionDate'] = Timestamp.now();
+    // ----------------------------------
+
     return Transaction.fromJson(data).copyWith(id: doc.id);
   }
 

@@ -1,95 +1,92 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart'; // Untuk format tanggal
-import 'package:kaskredit_1/features/reports/presentation/providers/report_provider.dart';
+import 'package:get/get.dart';
+import 'package:intl/intl.dart';
+import 'package:kaskredit_1/features/reports/presentation/controllers/report_controller.dart';
 import 'package:kaskredit_1/shared/models/sales_report.dart';
 import 'package:kaskredit_1/core/utils/formatters.dart';
 
-class ReportScreen extends ConsumerWidget {
+class ReportScreen extends StatelessWidget {
   const ReportScreen({super.key});
 
-  // Helper untuk format Rupiah
-  // String _formatCurrency(double amount) {
-  //   return 'Rp ${amount.toStringAsFixed(0)}';
-  // }
-
-  // Helper untuk memanggil Date Picker
-  Future<void> _selectDateRange(BuildContext context, WidgetRef ref) async {
+  Future<void> _selectDateRange(BuildContext context, ReportController controller) async {
     final now = DateTime.now();
-    final firstDate = DateTime(now.year - 1, 1, 1); // Izinkan 1 tahun ke belakang
+    final firstDate = DateTime(now.year - 1, 1, 1);
     final lastDate = now;
     
     final picked = await showDateRangePicker(
       context: context,
       firstDate: firstDate,
       lastDate: lastDate,
-      // Set tanggal awal dari provider jika sudah ada
-      initialDateRange: ref.read(reportDateRangeProvider),
+      initialDateRange: controller.selectedRange.value,
     );
 
     if (picked != null) {
-      // Simpan rentang tanggal yang dipilih ke provider
-      ref.read(reportDateRangeProvider.notifier).state = picked;
-      // Langsung generate laporan
-      ref.read(salesReportNotifierProvider.notifier).generateReport(
-            startDate: picked.start,
-            endDate: picked.end,
-          );
+      controller.generateReport(picked.start, picked.end);
     }
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // "Tonton" state laporan (AsyncValue) dan rentang tanggal
-    final reportState = ref.watch(salesReportNotifierProvider);
-    final selectedRange = ref.watch(reportDateRangeProvider);
+  Widget build(BuildContext context) {
+    final controller = Get.put(ReportController());
 
     return Scaffold(
       appBar: AppBar(
         title: const Text("Laporan Penjualan"),
         actions: [
-          // Tombol Kalender
           IconButton(
             icon: const Icon(Icons.calendar_month),
-            onPressed: () => _selectDateRange(context, ref),
+            onPressed: () => _selectDateRange(context, controller),
           ),
         ],
       ),
       body: Column(
         children: [
-          // Tampilkan rentang tanggal yang dipilih
-          Container(
-            padding: const EdgeInsets.all(16),
-            width: double.infinity,
-            color: Colors.grey[200],
-            child: Text(
-              selectedRange == null
-                  ? "Pilih rentang tanggal (klik ikon kalender)"
-                  : "Laporan untuk: ${DateFormat('d MMM yyyy').format(selectedRange.start)} - ${DateFormat('d MMM yyyy').format(selectedRange.end)}",
-              style: Theme.of(context).textTheme.titleMedium,
-              textAlign: TextAlign.center,
-            ),
-          ),
+          // Header Rentang Tanggal
+          Obx(() {
+            final range = controller.selectedRange.value;
+            return Container(
+              padding: const EdgeInsets.all(16),
+              width: double.infinity,
+              color: Colors.grey[200],
+              child: Text(
+                range == null
+                    ? "Pilih rentang tanggal (klik ikon kalender)"
+                    : "Laporan: ${DateFormat('d MMM yyyy', 'id_ID').format(range.start)} - ${DateFormat('d MMM yyyy', 'id_ID').format(range.end)}",
+                style: Theme.of(context).textTheme.titleMedium,
+                textAlign: TextAlign.center,
+              ),
+            );
+          }),
 
-          // Tampilkan hasil laporan
+          // Content Laporan
           Expanded(
-            child: reportState.when(
-              // Data null berarti state awal (belum generate)
-              data: (report) => (report == null)
-                  ? const Center(child: Text("Silakan pilih tanggal untuk membuat laporan."))
-                  : _buildReportData(context, report),
-              
-              loading: () => const Center(child: CircularProgressIndicator()),
-              
-              error: (e, s) => Center(child: Text("Error: $e")),
-            ),
+            child: Obx(() {
+              if (controller.isLoading.value) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final reportData = controller.report.value;
+              if (reportData == null) {
+                return const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.analytics_outlined, size: 64, color: Colors.grey),
+                      SizedBox(height: 16),
+                      Text("Data laporan belum tersedia"),
+                    ],
+                  ),
+                );
+              }
+
+              return _buildReportData(context, reportData);
+            }),
           ),
         ],
       ),
     );
   }
 
-  // Widget untuk menampilkan data laporan jika sukses
   Widget _buildReportData(BuildContext context, SalesReport report) {
     return ListView(
       padding: const EdgeInsets.all(16.0),
@@ -107,6 +104,7 @@ class ReportScreen extends ConsumerWidget {
                 _StatRow(label: "Total Omzet:", value: Formatters.currency.format(report.totalSales)),
                 _StatRow(label: "Total Profit:", value: Formatters.currency.format(report.totalProfit)),
                 _StatRow(label: "Jumlah Transaksi:", value: "${report.totalTransactions}x"),
+                const Divider(),
                 _StatRow(label: "Penjualan Tunai:", value: Formatters.currency.format(report.cashSales)),
                 _StatRow(label: "Penjualan Kredit:", value: Formatters.currency.format(report.creditSales)),
               ],
@@ -115,29 +113,40 @@ class ReportScreen extends ConsumerWidget {
         ),
         const SizedBox(height: 24),
 
-        // 2. Kartu Produk Terlaris
-        Text("Produk Terlaris", style: Theme.of(context).textTheme.titleLarge),
+        // 2. Produk Terlaris
+        Text("Produk Terlaris (Top 10)", style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 8),
         if (report.topProducts.isEmpty)
-          const Text("Tidak ada produk terjual.")
+          const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Text("Tidak ada data produk terjual."),
+          )
         else
           ...report.topProducts.map(
             (product) => Card(
               margin: const EdgeInsets.symmetric(vertical: 4),
               child: ListTile(
-                leading: CircleAvatar(child: Text(product.quantitySold.toString())),
-                title: Text(product.productName),
-                subtitle: Text("Omzet: ${Formatters.currency.format(product.totalSales)} | Profit: ${Formatters.currency.format(product.totalProfit)}"),              ),
+                leading: CircleAvatar(
+                  backgroundColor: Colors.blue.withOpacity(0.1),
+                  child: Text(
+                    "${product.quantitySold}",
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                ),
+                title: Text(product.productName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text("Profit: ${Formatters.currency.format(product.totalProfit)}"),
+                trailing: Text(
+                  Formatters.currency.format(product.totalSales),
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                ),
+              ),
             ),
           ),
-        
-        // 3. TODO: Chart Penjualan Harian (bisa ditambahkan nanti)
       ],
     );
   }
 }
 
-// Widget helper untuk baris statistik (bisa dipindah ke file shared)
 class _StatRow extends StatelessWidget {
   final String label;
   final String value;
@@ -150,8 +159,8 @@ class _StatRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 16)),
-          Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          Text(label, style: const TextStyle(fontSize: 15)),
+          Text(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
         ],
       ),
     );

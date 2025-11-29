@@ -1,10 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:kaskredit_1/shared/models/sales_report.dart';
 import 'package:kaskredit_1/shared/models/transaction.dart';
-
-part 'report_repository.g.dart'; // Akan dibuat
 
 class ReportRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -30,20 +26,18 @@ class ReportRepository {
     double cashSales = 0.0;
     double creditSales = 0.0;
     
-    // Map untuk melacak produk terlaris
-    // Key: productId, Value: ProductStats (mutable)
+    // Map untuk melacak produk terlaris & harian
     Map<String, ProductStats> productStatsMap = {};
-
-    // Map untuk melacak penjualan harian (untuk chart)
     Map<DateTime, DailyStats> dailyStatsMap = {};
 
-    // 3. Query utama: Ambil semua transaksi dalam rentang waktu
-    // Kita butuh indeks baru untuk ini!
+    // 3. Query: Ambil semua transaksi dalam rentang waktu
+    // Note: Firestore butuh Composite Index untuk query ini (userId + transactionDate)
+    // Jika belum ada index, log error akan memberikan link untuk membuatnya.
     final txSnap = await _transactionsRef
         .where('userId', isEqualTo: userId)
         .where('transactionDate', isGreaterThanOrEqualTo: start)
         .where('transactionDate', isLessThanOrEqualTo: end)
-        .orderBy('transactionDate') // Kita butuh ini untuk indeks
+        .orderBy('transactionDate')
         .get();
     
     totalTransactions = txSnap.docs.length;
@@ -63,8 +57,9 @@ class ReportRepository {
         creditSales += tx.totalAmount;
       }
 
-      // Akumulasi statistik harian (untuk chart)
+      // Akumulasi statistik harian
       final dateOnly = DateTime(tx.transactionDate.year, tx.transactionDate.month, tx.transactionDate.day);
+      
       final dailyStat = dailyStatsMap[dateOnly] ?? DailyStats(date: dateOnly, totalSales: 0, totalProfit: 0);
       
       dailyStatsMap[dateOnly] = dailyStat.copyWith(
@@ -110,10 +105,4 @@ class ReportRepository {
       topProducts: topProducts.take(10).toList(), // Ambil 10 teratas
     );
   }
-}
-
-// Provider Riverpod
-@Riverpod(keepAlive: true)
-ReportRepository reportRepository(Ref ref) {
-  return ReportRepository();
 }

@@ -1,10 +1,9 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-part 'payment.freezed.dart'; // Akan dibuat
-part 'payment.g.dart';     // Akan dibuat
+part 'payment.freezed.dart';
+part 'payment.g.dart';
 
-// Helper function untuk konversi timestamp
 DateTime _dateTimeFromTimestamp(Timestamp timestamp) => timestamp.toDate();
 Timestamp _dateTimeToTimestamp(DateTime dateTime) => Timestamp.fromDate(dateTime);
 
@@ -14,18 +13,18 @@ class Payment with _$Payment {
     @JsonKey(includeFromJson: false, includeToJson: false) String? id,
     
     required String userId,
-    required String transactionId, // Transaksi mana yang dibayar
+    required String transactionId,
     required String customerId,
-    required String customerName,  // Denormalized
+    required String customerName,
     
-    required double paymentAmount, // Jumlah yang dibayar
-    required String paymentMethod, // CASH atau TRANSFER
+    required double paymentAmount,
+    required String paymentMethod,
     
-    required double previousDebt,  // Sisa utang di transaksi SEBELUM bayar
-    required double remainingDebt, // Sisa utang di transaksi SETELAH bayar
+    required double previousDebt,
+    required double remainingDebt,
     
     String? notes,
-    required String receivedBy,    // Siapa kasir/owner yg terima
+    required String receivedBy,
     
     @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
     required DateTime paymentDate,
@@ -35,6 +34,12 @@ class Payment with _$Payment {
 
   factory Payment.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    
+    // --- FIX CRASH SERVER TIMESTAMP ---
+    if (data['paymentDate'] == null) data['paymentDate'] = Timestamp.now();
+    if (data['createdAt'] == null) data['createdAt'] = Timestamp.now();
+    // ----------------------------------
+
     return Payment.fromJson(data).copyWith(id: doc.id);
   }
 

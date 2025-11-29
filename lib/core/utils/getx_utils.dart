@@ -13,7 +13,8 @@ class GetXUtils {
       icon: const Icon(Icons.check_circle, color: Colors.green),
       margin: const EdgeInsets.all(16),
       borderRadius: 8,
-      duration: const Duration(seconds: 3),
+      duration: const Duration(seconds: 2), // Durasi tampil
+      animationDuration: const Duration(milliseconds: 300), // <-- TAMBAHAN PENTING
     );
   }
 
@@ -28,11 +29,12 @@ class GetXUtils {
       icon: const Icon(Icons.error, color: Colors.red),
       margin: const EdgeInsets.all(16),
       borderRadius: 8,
-      duration: const Duration(seconds: 3),
+      duration: const Duration(seconds: 3), // Durasi tampil
+      animationDuration: const Duration(milliseconds: 300), // <-- TAMBAHAN PENTING
     );
   }
 
-  // Confirmation Dialog
+  // Confirmation Dialog (Tidak berubah, tapi disertakan agar file utuh)
   static Future<bool> showConfirmDialog({
     required String title,
     required String message,

@@ -1,13 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
-
 import '../presentation/models/cart_state.dart';
 import '../../../shared/models/transaction.dart';
 import '../../../shared/models/transaction_item.dart';
-
-part 'transaction_repository.g.dart';
 
 class TransactionRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -20,9 +15,8 @@ class TransactionRepository {
         _productsRef = FirebaseFirestore.instance.collection('products'),
         _customersRef = FirebaseFirestore.instance.collection('customers');
 
-  // --- FUNGSI CREATE TRANSACTION (Sudah ada) ---
-  Future<void> createTransaction(CartState cart, String userId) async {
-    // ... (kode createTransaction Anda yang sudah berfungsi)
+  // --- CREATE TRANSACTION ---
+  Future<Transaction> createTransaction(CartState cart, String userId) async {
     final transactionNumber = await _generateTransactionNumber(userId);
     final batch = _firestore.batch();
     final transactionRef = _transactionsRef.doc();
@@ -39,45 +33,44 @@ class TransactionRepository {
     }).toList();
 
     final newTransaction = Transaction(
+      id: transactionRef.id, // Set ID dokumen
       userId: userId,
       transactionNumber: transactionNumber,
       customerId: cart.selectedCustomer?.id,
       customerName: cart.selectedCustomer?.name,
       items: items,
-      totalAmount: cart.totalAmount, // Total barang
+      totalAmount: cart.totalAmount,
       totalProfit: cart.totalProfit,
       
       paymentStatus: (cart.paymentType == PaymentType.CASH || cart.remainingDebt <= 0)
           ? PaymentStatus.PAID
-          : PaymentStatus.PARTIAL, // Gunakan PARTIAL jika ada DP
+          : PaymentStatus.PARTIAL,
       
       paymentType: cart.paymentType,
       
-      // --- SIMPAN DATA KREDIT BARU ---
       downPayment: cart.downPayment,
       interestRate: cart.interestRate,
       tenor: cart.tenor,
-      // --- AKHIR PERUBAHAN DATA KREDIT ---
 
       paidAmount: (cart.paymentType == PaymentType.CASH) 
-          ? cart.totalWithInterest // Jika tunai, bayar lunas (termasuk bunga jika ada)
-          : cart.downPayment,     // Jika kredit, bayar sejumlah DP
+          ? cart.totalWithInterest
+          : cart.downPayment,
       
       remainingDebt: (cart.paymentType == PaymentType.CASH)
-          ? 0.0 // Lunas
-          : cart.remainingDebt, // Ambil dari kalkulasi (Total+Bunga - DP)
+          ? 0.0
+          : cart.remainingDebt,
       
       transactionDate: DateTime.now(),
-      dueDate: cart.dueDate, // (Kita belum implementasi UI-nya, tapi datanya siap)
+      dueDate: cart.dueDate,
       notes: cart.notes,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
-    // --- AKHIR PERUBAHAN OBJEK ---
 
+    // 1. Simpan Transaksi
     batch.set(transactionRef, newTransaction.toJson());
 
-    // Update stok produk (logika ini tetap sama)
+    // 2. Update Stok Produk
     for (final item in cart.items) {
       final productRef = _productsRef.doc(item.product.id);
       batch.update(productRef, {
@@ -86,10 +79,9 @@ class TransactionRepository {
       });
     }
 
-    // Update utang pelanggan (logika ini diubah sedikit)
+    // 3. Update Utang Pelanggan (jika kredit)
     if (cart.paymentType == PaymentType.CREDIT && cart.selectedCustomer != null) {
       final customerRef = _customersRef.doc(cart.selectedCustomer!.id);
-      // Tambahkan utang sejumlah 'remainingDebt' (bukan totalAmount lagi)
       batch.update(customerRef, {
         'totalDebt': FieldValue.increment(cart.remainingDebt), 
         'updatedAt': FieldValue.serverTimestamp(),
@@ -97,11 +89,11 @@ class TransactionRepository {
     }
 
     await batch.commit();
+    return newTransaction; // Kembalikan objek transaksi untuk keperluan print
   }
 
-  // --- FUNGSI GENERATE NOMOR (Sudah ada) ---
+  // --- GENERATE NOMOR ---
   Future<String> _generateTransactionNumber(String userId) async {
-    // ... (kode _generateTransactionNumber Anda yang sudah berfungsi)
     final dateStr = DateFormat('yyyyMMdd').format(DateTime.now());
     final query = await _transactionsRef
         .where('userId', isEqualTo: userId)
@@ -123,7 +115,7 @@ class TransactionRepository {
     return 'TRX-$dateStr-$newNum';
   }
 
-  // --- METHOD YANG HILANG (TAMBAHKAN INI) ---
+  // --- READ METHODS ---
   Stream<List<Transaction>> getTransactionsWithDebt(String customerId) {
     return _transactionsRef
         .where('customerId', isEqualTo: customerId)
@@ -137,17 +129,10 @@ class TransactionRepository {
   Stream<List<Transaction>> getTransactionHistory(String userId) {
     return _transactionsRef
         .where('userId', isEqualTo: userId)
-        // Urutkan berdasarkan tanggal, terbaru di atas
         .orderBy('transactionDate', descending: true) 
-        .limit(100) // Batasi 100 transaksi terakhir (untuk performa)
+        .limit(100)
         .snapshots()
         .map((snapshot) =>
             snapshot.docs.map((doc) => Transaction.fromFirestore(doc)).toList());
   }
-} // <-- PASTIKAN METHOD BARU ADA DI ATAS KURUNG TUTUP INI
-
-// --- PROVIDER (Sudah ada) ---
-@Riverpod(keepAlive: true)
-TransactionRepository transactionRepository(Ref ref) {
-  return TransactionRepository();
 }

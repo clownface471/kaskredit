@@ -26,20 +26,15 @@ mixin _$Transaction {
   String get userId => throw _privateConstructorUsedError;
   String get transactionNumber => throw _privateConstructorUsedError;
   String? get customerId => throw _privateConstructorUsedError;
-  String? get customerName =>
-      throw _privateConstructorUsedError; // Denormalized
-  List<TransactionItem> get items =>
-      throw _privateConstructorUsedError; // List dari sub-model
+  String? get customerName => throw _privateConstructorUsedError;
+  List<TransactionItem> get items => throw _privateConstructorUsedError;
   double get totalAmount => throw _privateConstructorUsedError;
   double get totalProfit => throw _privateConstructorUsedError;
   PaymentStatus get paymentStatus => throw _privateConstructorUsedError;
   PaymentType get paymentType => throw _privateConstructorUsedError;
-  double get downPayment =>
-      throw _privateConstructorUsedError; // Uang Muka (DP)
-  double get interestRate =>
-      throw _privateConstructorUsedError; // Bunga (misal: 10 untuk 10%)
-  int get tenor =>
-      throw _privateConstructorUsedError; // Jangka waktu (misal: 3 untuk 3 bulan)
+  double get downPayment => throw _privateConstructorUsedError;
+  double get interestRate => throw _privateConstructorUsedError;
+  int get tenor => throw _privateConstructorUsedError;
   double get paidAmount => throw _privateConstructorUsedError;
   double get remainingDebt => throw _privateConstructorUsedError;
   @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
@@ -48,7 +43,7 @@ mixin _$Transaction {
     fromJson: _nullableDateTimeFromTimestamp,
     toJson: _nullableDateTimeToTimestamp,
   )
-  DateTime? get dueDate => throw _privateConstructorUsedError; // Opsional untuk kredit
+  DateTime? get dueDate => throw _privateConstructorUsedError;
   String? get notes => throw _privateConstructorUsedError;
   @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
   DateTime get createdAt => throw _privateConstructorUsedError;
@@ -436,9 +431,7 @@ class _$TransactionImpl implements _Transaction {
   final String? customerId;
   @override
   final String? customerName;
-  // Denormalized
   final List<TransactionItem> _items;
-  // Denormalized
   @override
   List<TransactionItem> get items {
     if (_items is EqualUnmodifiableListView) return _items;
@@ -446,7 +439,6 @@ class _$TransactionImpl implements _Transaction {
     return EqualUnmodifiableListView(_items);
   }
 
-  // List dari sub-model
   @override
   final double totalAmount;
   @override
@@ -458,15 +450,12 @@ class _$TransactionImpl implements _Transaction {
   @override
   @JsonKey()
   final double downPayment;
-  // Uang Muka (DP)
   @override
   @JsonKey()
   final double interestRate;
-  // Bunga (misal: 10 untuk 10%)
   @override
   @JsonKey()
   final int tenor;
-  // Jangka waktu (misal: 3 untuk 3 bulan)
   @override
   @JsonKey()
   final double paidAmount;
@@ -482,7 +471,6 @@ class _$TransactionImpl implements _Transaction {
     toJson: _nullableDateTimeToTimestamp,
   )
   final DateTime? dueDate;
-  // Opsional untuk kredit
   @override
   final String? notes;
   @override
@@ -622,9 +610,9 @@ abstract class _Transaction implements Transaction {
   @override
   String? get customerId;
   @override
-  String? get customerName; // Denormalized
+  String? get customerName;
   @override
-  List<TransactionItem> get items; // List dari sub-model
+  List<TransactionItem> get items;
   @override
   double get totalAmount;
   @override
@@ -634,11 +622,11 @@ abstract class _Transaction implements Transaction {
   @override
   PaymentType get paymentType;
   @override
-  double get downPayment; // Uang Muka (DP)
+  double get downPayment;
   @override
-  double get interestRate; // Bunga (misal: 10 untuk 10%)
+  double get interestRate;
   @override
-  int get tenor; // Jangka waktu (misal: 3 untuk 3 bulan)
+  int get tenor;
   @override
   double get paidAmount;
   @override
@@ -651,7 +639,7 @@ abstract class _Transaction implements Transaction {
     fromJson: _nullableDateTimeFromTimestamp,
     toJson: _nullableDateTimeToTimestamp,
   )
-  DateTime? get dueDate; // Opsional untuk kredit
+  DateTime? get dueDate;
   @override
   String? get notes;
   @override

@@ -1,10 +1,9 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-part 'customer.freezed.dart'; // Akan dibuat otomatis
-part 'customer.g.dart';     // Akan dibuat otomatis
+part 'customer.freezed.dart';
+part 'customer.g.dart';
 
-// Helper function untuk konversi timestamp
 DateTime _dateTimeFromTimestamp(Timestamp timestamp) => timestamp.toDate();
 Timestamp _dateTimeToTimestamp(DateTime dateTime) => Timestamp.fromDate(dateTime);
 
@@ -17,7 +16,7 @@ class Customer with _$Customer {
     required String name,
     String? phoneNumber,
     String? address,
-    @Default(0.0) double totalDebt, // Sesuai blueprint
+    @Default(0.0) double totalDebt, 
     String? notes,
     
     @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
@@ -28,6 +27,12 @@ class Customer with _$Customer {
 
   factory Customer.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    
+    // --- FIX CRASH SERVER TIMESTAMP ---
+    if (data['createdAt'] == null) data['createdAt'] = Timestamp.now();
+    if (data['updatedAt'] == null) data['updatedAt'] = Timestamp.now();
+    // ----------------------------------
+
     return Customer.fromJson(data).copyWith(id: doc.id);
   }
 
