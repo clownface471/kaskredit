@@ -8,6 +8,7 @@ import 'package:kaskredit_1/features/transactions/presentation/controllers/cart_
 import 'package:kaskredit_1/features/transactions/presentation/models/cart_state.dart';
 import 'package:kaskredit_1/features/printer/presentation/controllers/printer_controller.dart';
 import 'package:kaskredit_1/features/printer/data/printer_service.dart';
+import 'package:kaskredit_1/features/settings/presentation/screens/settings_screen.dart';
 import 'package:kaskredit_1/shared/models/customer.dart';
 import 'package:kaskredit_1/shared/models/transaction.dart';
 
@@ -25,6 +26,7 @@ class _CashierScreenState extends State<CashierScreen> {
   final ProductController productController = Get.put(ProductController());
   final CustomerController customerController = Get.put(CustomerController());
   final PrinterController printerController = Get.put(PrinterController());
+  final SettingsController settingsController = Get.put(SettingsController());
 
   @override
   void initState() {
@@ -146,8 +148,8 @@ class _CashierScreenState extends State<CashierScreen> {
         
         return Padding(
           padding: const EdgeInsets.all(16.0),
-          child: ListView(
-            shrinkWrap: true,
+          child: Column( // Mengubah ListView menjadi Column untuk mencegah overflow
+            mainAxisSize: MainAxisSize.min, // Penting agar tidak memenuhi layar
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -261,15 +263,38 @@ class _CashierScreenState extends State<CashierScreen> {
   Widget _buildCustomerDropdown() {
     return Obx(() {
       final customers = customerController.customers;
+      
+      // FIX UTAMA: Mencari object yang sama persis dari list berdasarkan ID
+      // Ini mencegah error "There should be exactly one item..."
+      Customer? selectedValue;
+      if (cartController.selectedCustomer != null) {
+        try {
+          selectedValue = customers.firstWhere(
+            (c) => c.id == cartController.selectedCustomer!.id
+          );
+        } catch (_) {
+          // Jika customer terpilih tidak ada di list (misal baru di-load), set null
+          selectedValue = null;
+        }
+      }
+
       return DropdownButtonFormField<Customer>(
-        value: cartController.selectedCustomer,
+        value: selectedValue, // Gunakan value yang sudah dicocokkan
         hint: const Text("Pilih Pelanggan... (Wajib)"),
+        isExpanded: true, // Mencegah overflow teks panjang
         decoration: const InputDecoration(
           prefixIcon: Icon(Icons.person),
-          border: OutlineInputBorder()
+          border: OutlineInputBorder(),
+          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         ),
         items: customers.map((c) => 
-          DropdownMenuItem(value: c, child: Text(c.name))
+          DropdownMenuItem(
+            value: c, 
+            child: Text(
+              c.name, 
+              overflow: TextOverflow.ellipsis,
+            ),
+          )
         ).toList(),
         onChanged: (val) => cartController.selectCustomer(val),
       );
@@ -280,7 +305,8 @@ class _CashierScreenState extends State<CashierScreen> {
     return TextFormField(
       decoration: InputDecoration(
         labelText: label,
-        border: const OutlineInputBorder()
+        border: const OutlineInputBorder(),
+        isDense: true, // Membuat input lebih compact
       ),
       keyboardType: TextInputType.number,
       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -370,14 +396,12 @@ class _CashierScreenState extends State<CashierScreen> {
           child: const Text("Tutup"),
         ),
         Obx(() {
-          // Cek apakah printer sudah dikonfigurasi
           final hasPrinter = printerController.printerIp.value != null;
-          
           return ElevatedButton.icon(
             icon: const Icon(Icons.print),
             label: Text(hasPrinter ? "Cetak Struk" : "Setup Printer"),
             onPressed: () async {
-              Get.back(); // Tutup dialog dulu
+              Get.back();
               
               if (!hasPrinter) {
                 Get.toNamed('/settings/printer');
@@ -424,14 +448,19 @@ class _CashierScreenState extends State<CashierScreen> {
 
     try {
       final printerService = PrinterService();
+      String shopName = settingsController.shopName.value;
+      if (shopName.isEmpty) shopName = "Toko Saya";
+
       final success = await printerService.printReceipt(
         printerIp: printerIp,
         transaction: transaction,
-        shopName: "Toko Kredit Anda", // TODO: Ambil dari user profile
+        shopName: shopName,
+        shopAddress: settingsController.shopAddress.value,
+        shopPhone: settingsController.shopPhone.value,
         footerNote: printerController.footerNote.value,
       );
 
-      Get.back(); // Tutup loading dialog
+      Get.back();
 
       if (success) {
         Get.snackbar(
@@ -450,7 +479,7 @@ class _CashierScreenState extends State<CashierScreen> {
         );
       }
     } catch (e) {
-      Get.back(); // Tutup loading dialog
+      Get.back();
       Get.snackbar(
         "Error",
         "Terjadi kesalahan: $e",

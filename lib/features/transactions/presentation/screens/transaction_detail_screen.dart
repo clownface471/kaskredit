@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:kaskredit_1/shared/models/transaction.dart' hide Transaction;
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:kaskredit_1/shared/models/transaction.dart' as tx;
+import 'package:kaskredit_1/shared/models/customer.dart';
 import 'package:kaskredit_1/shared/utils/formatters.dart';
 import 'package:kaskredit_1/features/printer/data/printer_service.dart';
 import 'package:kaskredit_1/features/printer/presentation/controllers/printer_controller.dart';
+import 'package:kaskredit_1/features/settings/presentation/screens/settings_screen.dart';
+import 'package:kaskredit_1/core/navigation/app_routes.dart';
 import 'package:intl/intl.dart';
 
 class TransactionDetailScreen extends StatelessWidget {
@@ -67,11 +70,8 @@ class TransactionDetailScreen extends StatelessWidget {
       floatingActionButton: transaction.paymentStatus != tx.PaymentStatus.PAID
           ? FloatingActionButton.extended(
               onPressed: () {
-                Get.snackbar(
-                  'Info',
-                  'Navigasi ke halaman pembayaran',
-                  snackPosition: SnackPosition.BOTTOM,
-                );
+                // Navigasi ke halaman bayar utang
+                Get.toNamed(AppRoutes.DEBT); 
               },
               icon: const Icon(Icons.payment),
               label: const Text("Bayar"),
@@ -165,8 +165,29 @@ class TransactionDetailScreen extends StatelessWidget {
               : 'Transaksi Tunai',
         ),
         trailing: const Icon(Icons.chevron_right),
-        onTap: () {
-          // TODO: Navigate to customer detail
+        // Navigasi ke Detail Customer
+        onTap: () async {
+          if (transaction.customerId != null) {
+            Get.dialog(const Center(child: CircularProgressIndicator()), barrierDismissible: false);
+            try {
+              final doc = await FirebaseFirestore.instance
+                  .collection('customers')
+                  .doc(transaction.customerId)
+                  .get();
+              
+              Get.back(); // Tutup loading
+              
+              if (doc.exists) {
+                final customer = Customer.fromFirestore(doc);
+                Get.toNamed(AppRoutes.CUSTOMER_DETAIL, arguments: customer);
+              } else {
+                Get.snackbar('Error', 'Data pelanggan tidak ditemukan (mungkin sudah dihapus)');
+              }
+            } catch (e) {
+              Get.back();
+              Get.snackbar('Error', 'Gagal memuat data pelanggan: $e');
+            }
+          }
         },
       ),
     );
@@ -400,8 +421,10 @@ class TransactionDetailScreen extends StatelessWidget {
     );
   }
 
+  // Fungsi Print
   void _printReceipt(tx.Transaction transaction) async {
-    final printerController = Get.find<PrinterController>();
+    final printerController = Get.put(PrinterController());
+    final settingsController = Get.put(SettingsController());
     
     if (printerController.printerIp.value == null) {
       Get.snackbar(
@@ -412,16 +435,66 @@ class TransactionDetailScreen extends StatelessWidget {
       return;
     }
 
-    Get.snackbar(
-      'Print',
-      'Mencetak struk...',
-      snackPosition: SnackPosition.BOTTOM,
-      duration: const Duration(seconds: 1),
+    Get.dialog(
+      const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text("Mencetak struk..."),
+              ],
+            ),
+          ),
+        ),
+      ),
+      barrierDismissible: false,
     );
 
-    // TODO: Implement actual printing
-    // final printerService = PrinterService();
-    // final success = await printerService.printReceipt(...)
+    try {
+      final printerService = PrinterService();
+      
+      // Ambil nama toko dari settings
+      String shopName = settingsController.shopName.value;
+      if (shopName.isEmpty) shopName = "Toko Saya";
+
+      final success = await printerService.printReceipt(
+        printerIp: printerController.printerIp.value!,
+        transaction: transaction,
+        shopName: shopName,
+        shopAddress: settingsController.shopAddress.value,
+        shopPhone: settingsController.shopPhone.value,
+        footerNote: printerController.footerNote.value,
+      );
+
+      Get.back(); // Tutup loading
+
+      if (success) {
+        Get.snackbar(
+          'Berhasil',
+          'Struk berhasil dicetak',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.green.withOpacity(0.1),
+        );
+      } else {
+        Get.snackbar(
+          'Gagal',
+          'Gagal mencetak struk. Cek koneksi.',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red.withOpacity(0.1),
+        );
+      }
+    } catch (e) {
+      Get.back();
+      Get.snackbar(
+        'Error',
+        'Terjadi kesalahan: $e',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
   }
 
   void _shareTransaction(tx.Transaction transaction) {

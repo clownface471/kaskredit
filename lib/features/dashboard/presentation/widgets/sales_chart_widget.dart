@@ -57,7 +57,7 @@ class WeeklySalesChart extends StatelessWidget {
                       const Icon(Icons.trending_up, size: 14, color: Colors.green),
                       const SizedBox(width: 4),
                       Text(
-                        "${((controller.weekTotalProfit / controller.weekTotalSales) * 100).toStringAsFixed(0)}%",
+                        "${controller.weekTotalSales > 0 ? ((controller.weekTotalProfit / controller.weekTotalSales) * 100).toStringAsFixed(0) : 0}%",
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
@@ -127,7 +127,9 @@ class WeeklySalesChart extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: data.map((dayData) {
           final heightRatio = dayData.sales / maxValue;
-          final barHeight = heightRatio * 160; // max height = 160
+          // PERBAIKAN: Kurangi multiplier tinggi bar dari 160 ke 140
+          // agar ada ruang cukup untuk teks label di atas dan bawah (mencegah overflow)
+          final barHeight = heightRatio * 140; 
           
           return Expanded(
             child: Padding(
@@ -146,6 +148,8 @@ class WeeklySalesChart extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                           color: Colors.blue,
                         ),
+                        maxLines: 1, // Pastikan 1 baris
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   
@@ -154,6 +158,7 @@ class WeeklySalesChart extends StatelessWidget {
                     onTap: () => _showDayDetail(context, dayData),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 500),
+                      // Pastikan tinggi minimal bar terlihat jika ada sales
                       height: barHeight < 20 && dayData.sales > 0 ? 20 : barHeight,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -204,12 +209,12 @@ class WeeklySalesChart extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _LegendItem(
+        const _LegendItem(
           color: Colors.blue,
           label: "Omzet",
         ),
         const SizedBox(width: 20),
-        _LegendItem(
+        const _LegendItem(
           color: Colors.green,
           label: "Profit",
         ),

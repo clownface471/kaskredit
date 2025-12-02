@@ -120,7 +120,8 @@ class DashboardScreen extends StatelessWidget {
                   const SizedBox(height: 20),
 
                   // ✨ BARU: Weekly Sales Chart
-                  Obx(() => WeeklySalesChart(controller: controller)),
+                  // PERBAIKAN: Menghapus Obx di sini karena 'WeeklySalesChart' tidak mengakses observable secara langsung di builder ini
+                  WeeklySalesChart(controller: controller),
 
                   const SizedBox(height: 20),
 
@@ -161,14 +162,14 @@ class DashboardScreen extends StatelessWidget {
         children: [
           _QuickStatCard(
             title: "Omzet Hari Ini",
-            value: Formatters.currency(stats.todaySales),
+            value: Formatters.currency.format(stats.todaySales),
             icon: Icons.trending_up,
             color: Colors.green,
             subtitle: "${stats.todayTransactions} transaksi",
           ),
           _QuickStatCard(
             title: "Profit Hari Ini",
-            value: Formatters.currency(stats.todayProfit),
+            value: Formatters.currency.format(stats.todayProfit),
             icon: Icons.attach_money,
             color: Colors.blue,
             subtitle: stats.todayProfit > 0 
@@ -177,7 +178,7 @@ class DashboardScreen extends StatelessWidget {
           ),
           _QuickStatCard(
             title: "Total Piutang",
-            value: Formatters.currency(stats.totalOutstandingDebt),
+            value: Formatters.currency.format(stats.totalOutstandingDebt),
             icon: Icons.credit_card,
             color: Colors.orange,
             subtitle: "${stats.totalDebtors} pelanggan",
@@ -239,14 +240,14 @@ class DashboardScreen extends StatelessWidget {
             const Divider(color: Colors.white24, height: 24),
             _SummaryRow(
               label: "Omzet",
-              value: Formatters.currency(stats.todaySales),
+              value: Formatters.currency.format(stats.todaySales),
               icon: Icons.shopping_cart,
               color: Colors.greenAccent,
             ),
             const SizedBox(height: 12),
             _SummaryRow(
               label: "Profit",
-              value: Formatters.currency(stats.todayProfit),
+              value: Formatters.currency.format(stats.todayProfit),
               icon: Icons.trending_up,
               color: Colors.lightBlueAccent,
             ),
@@ -254,7 +255,7 @@ class DashboardScreen extends StatelessWidget {
               const SizedBox(height: 12),
               _SummaryRow(
                 label: "Kredit Baru",
-                value: Formatters.currency(stats.todayNewDebt),
+                value: Formatters.currency.format(stats.todayNewDebt),
                 icon: Icons.credit_score,
                 color: Colors.orangeAccent,
               ),

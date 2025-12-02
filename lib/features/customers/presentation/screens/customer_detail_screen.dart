@@ -3,12 +3,12 @@ import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:kaskredit_1/shared/models/customer.dart';
-import 'package:kaskredit_1/shared/models/transaction.dart' hide Transaction;
 import 'package:kaskredit_1/shared/models/transaction.dart' as tx;
 import 'package:kaskredit_1/shared/models/payment.dart';
 import 'package:kaskredit_1/shared/utils/formatters.dart';
 import 'package:kaskredit_1/core/navigation/app_routes.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class CustomerDetailController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -18,7 +18,7 @@ class CustomerDetailController extends GetxController {
   final RxList<Payment> payments = <Payment>[].obs;
   final RxBool isLoading = true.obs;
   
-  // ✨ BARU: Statistik customer
+  // Statistik customer
   final RxInt totalTransactions = 0.obs;
   final RxDouble totalSpent = 0.0.obs;
   final RxDouble totalPaid = 0.0.obs;
@@ -48,9 +48,9 @@ class CustomerDetailController extends GetxController {
           .map((doc) => tx.Transaction.fromFirestore(doc))
           .toList();
       
-      // ✨ BARU: Hitung statistik
+      // Hitung statistik
       totalTransactions.value = transactions.length;
-      totalSpent.value = transactions.fold(0.0, (sum, tx) => sum + tx.totalAmount);
+      totalSpent.value = transactions.fold(0.0, (sum, t) => sum + t.totalAmount);
     });
 
     // Load payments
@@ -66,15 +66,15 @@ class CustomerDetailController extends GetxController {
           .map((doc) => Payment.fromFirestore(doc))
           .toList();
       
-      // ✨ BARU: Hitung total pembayaran
+      // Hitung total pembayaran
       totalPaid.value = payments.fold(0.0, (sum, p) => sum + p.paymentAmount);
       
       isLoading.value = false;
     });
   }
 
-  // ✨ BARU: Fungsi untuk call customer
-  void callCustomer() {
+  // Fungsi Call Customer
+  Future<void> callCustomer() async {
     if (customer.phoneNumber == null || customer.phoneNumber!.isEmpty) {
       Get.snackbar(
         'Info',
@@ -83,16 +83,21 @@ class CustomerDetailController extends GetxController {
       );
       return;
     }
-    // TODO: Implement actual phone call using url_launcher
-    Get.snackbar(
-      'Panggilan',
-      'Fitur panggilan akan segera tersedia',
-      snackPosition: SnackPosition.BOTTOM,
-    );
+    
+    final Uri launchUri = Uri(scheme: 'tel', path: customer.phoneNumber);
+    if (await canLaunchUrl(launchUri)) {
+      await launchUrl(launchUri);
+    } else {
+      Get.snackbar(
+        'Error',
+        'Tidak dapat melakukan panggilan',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
   }
 
-  // ✨ BARU: Fungsi untuk WhatsApp
-  void sendWhatsApp() {
+  // Fungsi Kirim WhatsApp
+  Future<void> sendWhatsApp() async {
     if (customer.phoneNumber == null || customer.phoneNumber!.isEmpty) {
       Get.snackbar(
         'Info',
@@ -101,12 +106,24 @@ class CustomerDetailController extends GetxController {
       );
       return;
     }
-    // TODO: Implement WhatsApp using url_launcher
-    Get.snackbar(
-      'WhatsApp',
-      'Fitur WhatsApp akan segera tersedia',
-      snackPosition: SnackPosition.BOTTOM,
-    );
+    
+    // Format nomor HP: hapus karakter non-digit, ganti 0 depan jadi 62
+    var phone = customer.phoneNumber!.replaceAll(RegExp(r'\D'), '');
+    if (phone.startsWith('0')) {
+      phone = '62${phone.substring(1)}';
+    }
+
+    final Uri whatsappUrl = Uri.parse("https://wa.me/$phone");
+    
+    if (await canLaunchUrl(whatsappUrl)) {
+      await launchUrl(whatsappUrl, mode: LaunchMode.externalApplication);
+    } else {
+      Get.snackbar(
+        'Error',
+        'Tidak dapat membuka WhatsApp',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
   }
 }
 
@@ -124,7 +141,7 @@ class CustomerDetailScreen extends StatelessWidget {
         appBar: AppBar(
           title: const Text("Detail Pelanggan"),
           actions: [
-            // ✨ BARU: Tombol call & WhatsApp
+            // Tombol call & WhatsApp
             if (customer.phoneNumber != null && customer.phoneNumber!.isNotEmpty) ...[
               IconButton(
                 icon: const Icon(Icons.phone),
@@ -256,7 +273,7 @@ class CustomerDetailScreen extends StatelessWidget {
               ),
             ],
             
-            // ✨ BARU: Notes jika ada
+            // Notes jika ada
             if (customer.notes != null && customer.notes!.isNotEmpty) ...[
               const SizedBox(height: 8),
               Container(
@@ -285,7 +302,7 @@ class CustomerDetailScreen extends StatelessWidget {
             
             const Divider(height: 24),
             
-            // ✨ IMPROVED: Statistik lebih lengkap
+            // Statistik
             Obx(() => Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
@@ -355,7 +372,6 @@ class CustomerDetailScreen extends StatelessWidget {
                 Text(
                   DateFormat('d MMM yyyy, HH:mm').format(transaction.transactionDate),
                 ),
-                // ✨ BARU: Tampilkan jumlah item
                 Text(
                   "${transaction.items.length} item",
                   style: const TextStyle(fontSize: 12, color: Colors.grey),
@@ -384,11 +400,10 @@ class CustomerDetailScreen extends StatelessWidget {
               ],
             ),
             onTap: () {
-              // TODO: Navigate to transaction detail
-              Get.snackbar(
-                'Info',
-                'Detail transaksi: ${transaction.transactionNumber}',
-                snackPosition: SnackPosition.BOTTOM,
+              // Navigasi ke Detail Transaksi
+              Get.toNamed(
+                AppRoutes.TRANSACTION_DETAIL,
+                arguments: transaction,
               );
             },
           ),
@@ -416,7 +431,7 @@ class CustomerDetailScreen extends StatelessWidget {
 
     return Column(
       children: [
-        // ✨ BARU: Summary pembayaran
+        // Summary pembayaran
         Obx(() => Container(
           margin: const EdgeInsets.all(16),
           padding: const EdgeInsets.all(16),
@@ -491,7 +506,7 @@ class CustomerDetailScreen extends StatelessWidget {
                             .format(payment.paymentDate),
                       ),
                       Text(
-                        "Ref: ${payment.transactionId.substring(0, 8)}...",
+                        "Ref: ${payment.transactionId.length > 8 ? payment.transactionId.substring(0, 8) + '...' : payment.transactionId}",
                         style: const TextStyle(fontSize: 12, color: Colors.grey),
                       ),
                     ],

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:kaskredit_1/core/utils/formatters.dart';
 import 'package:kaskredit_1/features/transactions/presentation/controllers/transaction_history_controller.dart';
 import 'package:kaskredit_1/shared/models/transaction.dart';
+import 'package:kaskredit_1/core/navigation/app_routes.dart'; // Tambah import routes
 
 class TransactionHistoryScreen extends StatelessWidget {
   const TransactionHistoryScreen({super.key});
@@ -95,7 +96,11 @@ class _TransactionCard extends StatelessWidget {
           ],
         ),
         onTap: () {
-          // TODO: Detail transaksi (bisa ditambahkan nanti)
+          // Navigasi ke Detail Transaksi
+          Get.toNamed(
+            AppRoutes.TRANSACTION_DETAIL,
+            arguments: tx,
+          );
         },
       ),
     );
