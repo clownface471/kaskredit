@@ -10,7 +10,6 @@ class CustomerListScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Initialize controller
     final CustomerController controller = Get.put(CustomerController());
 
     return Scaffold(
@@ -25,7 +24,6 @@ class CustomerListScreen extends StatelessWidget {
       ),
       body: Column(
         children: [
-          // Search bar
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: TextField(
@@ -41,7 +39,6 @@ class CustomerListScreen extends StatelessWidget {
             ),
           ),
           
-          // Customer list
           Expanded(
             child: Obx(() {
               if (controller.isLoading.value && controller.customers.isEmpty) {
@@ -104,8 +101,9 @@ class _CustomerCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
+        // UPDATED: Buka customer detail screen, bukan edit
         onTap: () => Get.toNamed(
-          AppRoutes.EDIT_CUSTOMER,
+          AppRoutes.CUSTOMER_DETAIL,
           arguments: customer,
         ),
         borderRadius: BorderRadius.circular(12),
@@ -113,7 +111,6 @@ class _CustomerCard extends StatelessWidget {
           padding: const EdgeInsets.all(16.0),
           child: Row(
             children: [
-              // Avatar
               CircleAvatar(
                 radius: 24,
                 backgroundColor: hasDebt 
@@ -126,7 +123,6 @@ class _CustomerCard extends StatelessWidget {
               ),
               const SizedBox(width: 16),
               
-              // Customer info
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -139,7 +135,8 @@ class _CustomerCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    if (customer.phoneNumber != null && customer.phoneNumber!.isNotEmpty)
+                    if (customer.phoneNumber != null && 
+                        customer.phoneNumber!.isNotEmpty)
                       Text(
                         customer.phoneNumber!,
                         style: TextStyle(
@@ -162,10 +159,57 @@ class _CustomerCard extends StatelessWidget {
                 ),
               ),
               
-              // Arrow icon
-              Icon(
-                Icons.chevron_right,
-                color: Colors.grey[400],
+              // Action buttons
+              PopupMenuButton<String>(
+                icon: Icon(Icons.more_vert, color: Colors.grey[600]),
+                onSelected: (value) {
+                  if (value == 'detail') {
+                    Get.toNamed(
+                      AppRoutes.CUSTOMER_DETAIL,
+                      arguments: customer,
+                    );
+                  } else if (value == 'edit') {
+                    Get.toNamed(
+                      AppRoutes.EDIT_CUSTOMER,
+                      arguments: customer,
+                    );
+                  } else if (value == 'pay' && hasDebt) {
+                    Get.toNamed(AppRoutes.DEBT);
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'detail',
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, size: 20),
+                        SizedBox(width: 8),
+                        Text('Lihat Detail'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit_outlined, size: 20),
+                        SizedBox(width: 8),
+                        Text('Edit'),
+                      ],
+                    ),
+                  ),
+                  if (hasDebt)
+                    const PopupMenuItem(
+                      value: 'pay',
+                      child: Row(
+                        children: [
+                          Icon(Icons.payment, size: 20, color: Colors.orange),
+                          SizedBox(width: 8),
+                          Text('Bayar Utang'),
+                        ],
+                      ),
+                    ),
+                ],
               ),
             ],
           ),
