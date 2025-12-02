@@ -25,6 +25,7 @@ import 'package:kaskredit_1/features/settings/presentation/screens/settings_scre
 import 'package:kaskredit_1/features/printer/presentation/screens/printer_settings_screen.dart';
 import 'package:kaskredit_1/features/reports/presentation/screens/report_screen.dart'; 
 
+
 class AppPages {
   static final routes = [
     // Auth
