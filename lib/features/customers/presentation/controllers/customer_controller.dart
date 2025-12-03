@@ -3,6 +3,9 @@ import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:kaskredit_1/shared/models/customer.dart';
 import 'package:kaskredit_1/features/customers/data/customer_repository.dart';
+import 'package:kaskredit_1/core/utils/getx_utils.dart';
+
+enum CustomerFilter { all, withDebt, noDebt }
 
 class CustomerController extends GetxController {
   final CustomerRepository _repository = CustomerRepository();
@@ -11,18 +14,40 @@ class CustomerController extends GetxController {
   final RxList<Customer> customers = <Customer>[].obs;
   final RxBool isLoading = false.obs;
   final RxString searchQuery = ''.obs;
+  final Rx<CustomerFilter> currentFilter = CustomerFilter.all.obs;
   
   // Computed property untuk filtered customers
   List<Customer> get filteredCustomers {
-    if (searchQuery.isEmpty) {
-      return customers;
+    var result = customers.toList();
+    
+    // Apply filter
+    switch (currentFilter.value) {
+      case CustomerFilter.withDebt:
+        result = result.where((c) => c.totalDebt > 0).toList();
+        break;
+      case CustomerFilter.noDebt:
+        result = result.where((c) => c.totalDebt == 0).toList();
+        break;
+      case CustomerFilter.all:
+      default:
+        break;
     }
-    return customers
-        .where((customer) => 
-            customer.name.toLowerCase().contains(searchQuery.toLowerCase()) ||
-            (customer.phoneNumber?.toLowerCase().contains(searchQuery.toLowerCase()) ?? false))
-        .toList();
+    
+    // Apply search
+    if (searchQuery.isNotEmpty) {
+      result = result.where((customer) => 
+          customer.name.toLowerCase().contains(searchQuery.toLowerCase()) ||
+          (customer.phoneNumber?.toLowerCase().contains(searchQuery.toLowerCase()) ?? false)
+      ).toList();
+    }
+    
+    return result;
   }
+
+  // Stats
+  int get totalCustomers => customers.length;
+  int get debtorsCount => customers.where((c) => c.totalDebt > 0).length;
+  double get totalDebt => customers.fold(0.0, (sum, c) => sum + c.totalDebt);
 
   @override
   void onInit() {
@@ -43,12 +68,7 @@ class CustomerController extends GetxController {
       },
       onError: (error) {
         isLoading.value = false;
-        Get.snackbar(
-          'Error',
-          'Gagal memuat pelanggan: $error',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.red.withOpacity(0.1),
-        );
+        GetXUtils.showError('Gagal memuat pelanggan: $error');
       },
     );
   }
@@ -57,26 +77,23 @@ class CustomerController extends GetxController {
     searchQuery.value = query;
   }
 
+  void setFilter(CustomerFilter filter) {
+    currentFilter.value = filter;
+  }
+
+  void clearSearch() {
+    searchQuery.value = '';
+  }
+
   Future<void> addCustomer(Customer customer) async {
     try {
       isLoading.value = true;
       await _repository.addCustomer(customer);
       
       Get.back();
-      Get.snackbar(
-        'Berhasil',
-        'Pelanggan berhasil ditambahkan',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.green.withOpacity(0.1),
-        icon: const Icon(Icons.check_circle, color: Colors.green),
-      );
+      GetXUtils.showSuccess('Pelanggan berhasil ditambahkan');
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Gagal menambah pelanggan: $e',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red.withOpacity(0.1),
-      );
+      GetXUtils.showError('Gagal menambah pelanggan: $e');
     } finally {
       isLoading.value = false;
     }
@@ -88,20 +105,9 @@ class CustomerController extends GetxController {
       await _repository.updateCustomer(customer);
       
       Get.back();
-      Get.snackbar(
-        'Berhasil',
-        'Pelanggan berhasil diupdate',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.green.withOpacity(0.1),
-        icon: const Icon(Icons.check_circle, color: Colors.green),
-      );
+      GetXUtils.showSuccess('Pelanggan berhasil diupdate');
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Gagal mengupdate pelanggan: $e',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red.withOpacity(0.1),
-      );
+      GetXUtils.showError('Gagal mengupdate pelanggan: $e');
     } finally {
       isLoading.value = false;
     }
@@ -110,56 +116,31 @@ class CustomerController extends GetxController {
   Future<void> deleteCustomer(Customer customer) async {
     // Cek apakah customer masih punya utang
     if (customer.totalDebt > 0) {
-      Get.snackbar(
-        'Gagal',
-        'Pelanggan ini masih memiliki utang',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red.withOpacity(0.1),
-        icon: const Icon(Icons.error, color: Colors.red),
+      GetXUtils.showWarning(
+        'Tidak dapat menghapus pelanggan yang masih memiliki utang',
+        title: 'Tidak Bisa Dihapus',
       );
       return;
     }
 
     // Show confirmation dialog
-    final confirmed = await Get.dialog<bool>(
-      AlertDialog(
-        title: const Text('Konfirmasi Hapus'),
-        content: Text('Yakin ingin menghapus pelanggan "${customer.name}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(result: false),
-            child: const Text('Batal'),
-          ),
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            onPressed: () => Get.back(result: true),
-            child: const Text('Hapus'),
-          ),
-        ],
-      ),
+    final confirmed = await GetXUtils.showConfirmDialog(
+      title: 'Konfirmasi Hapus',
+      message: 'Yakin ingin menghapus pelanggan "${customer.name}"?',
+      confirmText: 'Hapus',
+      cancelText: 'Batal',
     );
 
-    if (confirmed != true) return;
+    if (!confirmed) return;
 
     try {
       isLoading.value = true;
       await _repository.deleteCustomer(customer.id!);
       
       Get.back();
-      Get.snackbar(
-        'Berhasil',
-        'Pelanggan berhasil dihapus',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.green.withOpacity(0.1),
-        icon: const Icon(Icons.check_circle, color: Colors.green),
-      );
+      GetXUtils.showSuccess('Pelanggan berhasil dihapus');
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Gagal menghapus pelanggan: $e',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red.withOpacity(0.1),
-      );
+      GetXUtils.showError('Gagal menghapus pelanggan: $e');
     } finally {
       isLoading.value = false;
     }

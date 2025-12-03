@@ -16,25 +16,51 @@ class CustomerListScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text("Pelanggan"),
         actions: [
-          // Filter button untuk show all / debt only
+          // Filter button
           Obx(() {
-            final debtorsCount = controller.customers
-                .where((c) => c.totalDebt > 0)
-                .length;
+            final currentFilter = controller.currentFilter.value;
             
             return PopupMenuButton<String>(
-              icon: const Icon(Icons.filter_list),
+              icon: Badge(
+                isLabelVisible: currentFilter != CustomerFilter.all,
+                label: const Text('1'),
+                child: const Icon(Icons.filter_list),
+              ),
               onSelected: (value) {
-                // TODO: Implement filter
+                if (value == 'all') {
+                  controller.setFilter(CustomerFilter.all);
+                } else if (value == 'debt') {
+                  controller.setFilter(CustomerFilter.withDebt);
+                } else if (value == 'no_debt') {
+                  controller.setFilter(CustomerFilter.noDebt);
+                }
               },
               itemBuilder: (context) => [
                 PopupMenuItem(
                   value: 'all',
                   child: Row(
                     children: [
-                      const Icon(Icons.people, size: 20),
+                      Icon(
+                        Icons.people,
+                        size: 20,
+                        color: currentFilter == CustomerFilter.all
+                            ? Colors.blue
+                            : Colors.grey,
+                      ),
                       const SizedBox(width: 12),
-                      Text('Semua (${controller.customers.length})'),
+                      Text(
+                        'Semua (${controller.totalCustomers})',
+                        style: TextStyle(
+                          fontWeight: currentFilter == CustomerFilter.all
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
+                      ),
+                      if (currentFilter == CustomerFilter.all)
+                        const Padding(
+                          padding: EdgeInsets.only(left: 8),
+                          child: Icon(Icons.check, size: 16, color: Colors.blue),
+                        ),
                     ],
                   ),
                 ),
@@ -42,9 +68,55 @@ class CustomerListScreen extends StatelessWidget {
                   value: 'debt',
                   child: Row(
                     children: [
-                      const Icon(Icons.credit_card, size: 20, color: Colors.red),
+                      Icon(
+                        Icons.credit_card,
+                        size: 20,
+                        color: currentFilter == CustomerFilter.withDebt
+                            ? Colors.red
+                            : Colors.grey,
+                      ),
                       const SizedBox(width: 12),
-                      Text('Berutang ($debtorsCount)'),
+                      Text(
+                        'Berutang (${controller.debtorsCount})',
+                        style: TextStyle(
+                          fontWeight: currentFilter == CustomerFilter.withDebt
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
+                      ),
+                      if (currentFilter == CustomerFilter.withDebt)
+                        const Padding(
+                          padding: EdgeInsets.only(left: 8),
+                          child: Icon(Icons.check, size: 16, color: Colors.red),
+                        ),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'no_debt',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.check_circle,
+                        size: 20,
+                        color: currentFilter == CustomerFilter.noDebt
+                            ? Colors.green
+                            : Colors.grey,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Lunas (${controller.totalCustomers - controller.debtorsCount})',
+                        style: TextStyle(
+                          fontWeight: currentFilter == CustomerFilter.noDebt
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
+                      ),
+                      if (currentFilter == CustomerFilter.noDebt)
+                        const Padding(
+                          padding: EdgeInsets.only(left: 8),
+                          child: Icon(Icons.check, size: 16, color: Colors.green),
+                        ),
                     ],
                   ),
                 ),
@@ -72,9 +144,7 @@ class CustomerListScreen extends StatelessWidget {
                   if (controller.searchQuery.isEmpty) return const SizedBox.shrink();
                   return IconButton(
                     icon: const Icon(Icons.clear),
-                    onPressed: () {
-                      controller.updateSearchQuery('');
-                    },
+                    onPressed: () => controller.clearSearch(),
                   );
                 }),
                 border: OutlineInputBorder(
@@ -94,13 +164,8 @@ class CustomerListScreen extends StatelessWidget {
 
           // Summary Stats
           Obx(() {
-            final totalDebt = controller.customers.fold<double>(
-              0,
-              (sum, customer) => sum + customer.totalDebt,
-            );
-            final debtorsCount = controller.customers
-                .where((c) => c.totalDebt > 0)
-                .length;
+            final totalDebt = controller.totalDebt;
+            final debtorsCount = controller.debtorsCount;
 
             if (totalDebt == 0) return const SizedBox.shrink();
 
