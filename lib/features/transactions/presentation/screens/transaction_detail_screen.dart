@@ -423,7 +423,7 @@ class TransactionDetailScreen extends StatelessWidget {
 
   // Fungsi Print
   void _printReceipt(tx.Transaction transaction) async {
-    final printerController = Get.put(PrinterController());
+    final printerController = Get.put(EnhancedPrinterController());
     final settingsController = Get.put(SettingsController());
     
     if (printerController.printerIp.value == null) {
@@ -455,7 +455,7 @@ class TransactionDetailScreen extends StatelessWidget {
     );
 
     try {
-      final printerService = PrinterService();
+      final printerService = EnhancedPrinterService();
       
       // Ambil nama toko dari settings
       String shopName = settingsController.shopName.value;

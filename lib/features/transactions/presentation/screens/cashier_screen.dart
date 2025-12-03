@@ -25,7 +25,7 @@ class _CashierScreenState extends State<CashierScreen> {
   final CartController cartController = Get.put(CartController());
   final ProductController productController = Get.put(ProductController());
   final CustomerController customerController = Get.put(CustomerController());
-  final PrinterController printerController = Get.put(PrinterController());
+  final EnhancedPrinterController printerController = Get.put(EnhancedPrinterController());
   final SettingsController settingsController = Get.put(SettingsController());
 
   @override
@@ -447,7 +447,7 @@ class _CashierScreenState extends State<CashierScreen> {
     );
 
     try {
-      final printerService = PrinterService();
+      final printerService = EnhancedPrinterService();
       String shopName = settingsController.shopName.value;
       if (shopName.isEmpty) shopName = "Toko Saya";
 

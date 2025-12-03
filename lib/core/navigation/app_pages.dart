@@ -63,8 +63,7 @@ class AppPages {
 
     // Settings
     GetPage(name: AppRoutes.SETTINGS, page: () => const SettingsScreen()),
-    GetPage(name: AppRoutes.PRINTER_SETTINGS, page: () => const PrinterSettingsScreen()),
-
+    GetPage(name: AppRoutes.PRINTER_SETTINGS, page: () => const EnhancedPrinterSettingsScreen()),
     // Reports
     GetPage(name: AppRoutes.REPORTS, page: () => const ReportScreen()), 
   ];
