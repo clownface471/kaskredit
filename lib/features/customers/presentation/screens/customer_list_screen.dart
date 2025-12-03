@@ -14,31 +14,171 @@ class CustomerListScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Daftar Pelanggan"),
+        title: const Text("Pelanggan"),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () => Get.toNamed(AppRoutes.ADD_CUSTOMER),
-          ),
+          // Filter button untuk show all / debt only
+          Obx(() {
+            final debtorsCount = controller.customers
+                .where((c) => c.totalDebt > 0)
+                .length;
+            
+            return PopupMenuButton<String>(
+              icon: const Icon(Icons.filter_list),
+              onSelected: (value) {
+                // TODO: Implement filter
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'all',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.people, size: 20),
+                      const SizedBox(width: 12),
+                      Text('Semua (${controller.customers.length})'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'debt',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.credit_card, size: 20, color: Colors.red),
+                      const SizedBox(width: 12),
+                      Text('Berutang ($debtorsCount)'),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          }),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => Get.toNamed(AppRoutes.ADD_CUSTOMER),
+        icon: const Icon(Icons.person_add),
+        label: const Text("Tambah"),
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
+          // Search Bar
+          Container(
+            padding: const EdgeInsets.all(16),
+            color: Colors.white,
             child: TextField(
               decoration: InputDecoration(
-                hintText: "Cari pelanggan...",
+                hintText: "Cari nama atau nomor HP...",
                 prefixIcon: const Icon(Icons.search),
+                suffixIcon: Obx(() {
+                  if (controller.searchQuery.isEmpty) return const SizedBox.shrink();
+                  return IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      controller.updateSearchQuery('');
+                    },
+                  );
+                }),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
                 ),
                 filled: true,
+                fillColor: Colors.grey[50],
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
               ),
               onChanged: controller.updateSearchQuery,
             ),
           ),
+
+          // Summary Stats
+          Obx(() {
+            final totalDebt = controller.customers.fold<double>(
+              0,
+              (sum, customer) => sum + customer.totalDebt,
+            );
+            final debtorsCount = controller.customers
+                .where((c) => c.totalDebt > 0)
+                .length;
+
+            if (totalDebt == 0) return const SizedBox.shrink();
+
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.orange.shade700, Colors.orange.shade500],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.orange.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.account_balance_wallet,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Total Piutang',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          Formatters.currency(totalDebt),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '$debtorsCount pelanggan berutang',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(
+                    Icons.arrow_forward_ios,
+                    color: Colors.white70,
+                    size: 16,
+                  ),
+                ],
+              ),
+            );
+          }),
           
+          // Customer List
           Expanded(
             child: Obx(() {
               if (controller.isLoading.value && controller.customers.isEmpty) {
@@ -50,9 +190,13 @@ class CustomerListScreen extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.people_outline, 
-                           size: 64, 
-                           color: Colors.grey[400]),
+                      Icon(
+                        controller.searchQuery.isEmpty
+                            ? Icons.people_outline
+                            : Icons.search_off,
+                        size: 80,
+                        color: Colors.grey[400],
+                      ),
                       const SizedBox(height: 16),
                       Text(
                         controller.searchQuery.isEmpty
@@ -61,8 +205,19 @@ class CustomerListScreen extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 16,
                           color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
+                      if (controller.searchQuery.isEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          "Tambah pelanggan baru untuk memulai",
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[500],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 );
@@ -73,7 +228,7 @@ class CustomerListScreen extends StatelessWidget {
                   controller.loadCustomers();
                 },
                 child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
                   itemCount: controller.filteredCustomers.length,
                   itemBuilder: (context, index) {
                     final customer = controller.filteredCustomers[index];
@@ -100,8 +255,14 @@ class _CustomerCard extends StatelessWidget {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: hasDebt
+            ? BorderSide(color: Colors.red.withOpacity(0.3), width: 1)
+            : BorderSide.none,
+      ),
       child: InkWell(
-        // UPDATED: Buka customer detail screen, bukan edit
         onTap: () => Get.toNamed(
           AppRoutes.CUSTOMER_DETAIL,
           arguments: customer,
@@ -111,18 +272,38 @@ class _CustomerCard extends StatelessWidget {
           padding: const EdgeInsets.all(16.0),
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: hasDebt 
-                    ? Colors.red.withOpacity(0.1)
-                    : Colors.blue.withOpacity(0.1),
-                child: Icon(
-                  Icons.person,
-                  color: hasDebt ? Colors.red : Colors.blue,
+              // Avatar
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: hasDebt
+                      ? Colors.red.withOpacity(0.1)
+                      : Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(25),
+                  border: Border.all(
+                    color: hasDebt
+                        ? Colors.red.withOpacity(0.3)
+                        : Colors.blue.withOpacity(0.3),
+                    width: 2,
+                  ),
+                ),
+                child: Center(
+                  child: Text(
+                    customer.name.isNotEmpty
+                        ? customer.name[0].toUpperCase()
+                        : '?',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: hasDebt ? Colors.red : Colors.blue,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 16),
               
+              // Info
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -135,23 +316,50 @@ class _CustomerCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    if (customer.phoneNumber != null && 
+                    if (customer.phoneNumber != null &&
                         customer.phoneNumber!.isNotEmpty)
-                      Text(
-                        customer.phoneNumber!,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
+                      Row(
+                        children: [
+                          Icon(Icons.phone, size: 14, color: Colors.grey[600]),
+                          const SizedBox(width: 4),
+                          Text(
+                            customer.phoneNumber!,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
                       ),
                     if (hasDebt) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        'Utang: ${Formatters.currency(customer.totalDebt)}',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.red,
-                          fontWeight: FontWeight.w600,
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.error_outline,
+                              size: 14,
+                              color: Colors.red,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Utang: ${Formatters.currency(customer.totalDebt)}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.red,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -159,9 +367,12 @@ class _CustomerCard extends StatelessWidget {
                 ),
               ),
               
-              // Action buttons
+              // Action Menu
               PopupMenuButton<String>(
                 icon: Icon(Icons.more_vert, color: Colors.grey[600]),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
                 onSelected: (value) {
                   if (value == 'detail') {
                     Get.toNamed(
@@ -183,7 +394,7 @@ class _CustomerCard extends StatelessWidget {
                     child: Row(
                       children: [
                         Icon(Icons.info_outline, size: 20),
-                        SizedBox(width: 8),
+                        SizedBox(width: 12),
                         Text('Lihat Detail'),
                       ],
                     ),
@@ -193,7 +404,7 @@ class _CustomerCard extends StatelessWidget {
                     child: Row(
                       children: [
                         Icon(Icons.edit_outlined, size: 20),
-                        SizedBox(width: 8),
+                        SizedBox(width: 12),
                         Text('Edit'),
                       ],
                     ),
@@ -204,7 +415,7 @@ class _CustomerCard extends StatelessWidget {
                       child: Row(
                         children: [
                           Icon(Icons.payment, size: 20, color: Colors.orange),
-                          SizedBox(width: 8),
+                          SizedBox(width: 12),
                           Text('Bayar Utang'),
                         ],
                       ),
