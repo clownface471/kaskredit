@@ -4,8 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:kaskredit_1/shared/models/transaction.dart' as tx;
 import 'package:kaskredit_1/shared/models/customer.dart';
 import 'package:kaskredit_1/shared/utils/formatters.dart';
-import 'package:kaskredit_1/features/printer/data/printer_service.dart';
 import 'package:kaskredit_1/features/printer/presentation/controllers/printer_controller.dart';
+import 'package:kaskredit_1/features/printer/data/printer_service.dart';
 import 'package:kaskredit_1/features/settings/presentation/screens/settings_screen.dart';
 import 'package:kaskredit_1/core/navigation/app_routes.dart';
 import 'package:intl/intl.dart';
@@ -423,7 +423,7 @@ class TransactionDetailScreen extends StatelessWidget {
 
   // Fungsi Print
   void _printReceipt(tx.Transaction transaction) async {
-    final printerController = Get.put(EnhancedPrinterController());
+    final printerController = Get.put(EnhancedPrinterControllerV2());
     final settingsController = Get.put(SettingsController());
     
     if (printerController.printerIp.value == null) {
@@ -455,7 +455,7 @@ class TransactionDetailScreen extends StatelessWidget {
     );
 
     try {
-      final printerService = EnhancedPrinterService();
+      final printerService = EnhancedPrinterServiceV2();
       
       // Ambil nama toko dari settings
       String shopName = settingsController.shopName.value;

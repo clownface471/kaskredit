@@ -1,314 +1,509 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:async';
 import 'package:esc_pos_printer/esc_pos_printer.dart';
 import 'package:esc_pos_utils/esc_pos_utils.dart';
 import 'package:kaskredit_1/shared/models/transaction.dart';
 import 'package:intl/intl.dart';
 import 'package:image/image.dart' as img;
 
-/// Enhanced Printer Service dengan fitur lengkap
-/// Mendukung:
-/// - Print receipt transaksi
-/// - Print laporan harian
-/// - Print nota pembayaran
-/// - Custom logo/header
-/// - Bluetooth & WiFi printer
-/// - QR Code untuk transaksi
-class EnhancedPrinterService {
-  // Konstanta untuk ukuran kertas
+/// Print Result Enum - Declare OUTSIDE class
+enum PrintResult {
+  success,
+  connectionFailed,
+  printerBusy,
+  paperOut,
+  printerError,
+  timeout,
+  cancelled,
+}
+
+/// Enhanced Printer Service v2
+/// Improvements:
+/// - Better error handling dengan error codes
+/// - Auto-reconnect mechanism
+/// - Print retry logic
+/// - Connection pooling
+/// - Better logging
+class EnhancedPrinterServiceV2 {
   static const PaperSize PAPER_58MM = PaperSize.mm58;
   static const PaperSize PAPER_80MM = PaperSize.mm80;
 
-  // Status printer
-  bool _isConnected = false;
   NetworkPrinter? _printer;
-
+  String? _lastConnectedIp;
+  bool _isConnected = false;
+  
   bool get isConnected => _isConnected;
 
-  /// Scan printer di jaringan lokal
-  /// Returns: List IP address yang ditemukan
-  Future<List<String>> scanPrinters({
+  /// Get error message from result
+  String getErrorMessage(PrintResult result) {
+    switch (result) {
+      case PrintResult.success:
+        return 'Print berhasil';
+      case PrintResult.connectionFailed:
+        return 'Gagal terhubung ke printer. Periksa koneksi WiFi.';
+      case PrintResult.printerBusy:
+        return 'Printer sedang sibuk. Coba lagi.';
+      case PrintResult.paperOut:
+        return 'Kertas printer habis.';
+      case PrintResult.printerError:
+        return 'Printer mengalami error. Restart printer.';
+      case PrintResult.timeout:
+        return 'Koneksi timeout. Periksa jaringan.';
+      case PrintResult.cancelled:
+        return 'Print dibatalkan';
+    }
+  }
+
+  bool get isConnect => _isConnected;
+
+  /// Connect dengan retry mechanism
+  Future<bool> connect(
+    String printerIp, {
+    int port = 9100,
+    int maxRetries = 3,
+    Duration timeout = const Duration(seconds: 5),
+  }) async {
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        final profile = await CapabilityProfile.load();
+        _printer = NetworkPrinter(PAPER_58MM, profile);
+
+        final result = await _printer!.connect(
+          printerIp,
+          port: port,
+          timeout: timeout,
+        );
+
+        if (result == PosPrintResult.success) {
+          _isConnected = true;
+          _lastConnectedIp = printerIp;
+          return true;
+        }
+
+        // Jika gagal, tunggu sebelum retry
+        if (attempt < maxRetries) {
+          await Future.delayed(Duration(seconds: attempt));
+        }
+      } catch (e) {
+        print('Connection attempt $attempt failed: $e');
+        if (attempt == maxRetries) {
+          _isConnected = false;
+          return false;
+        }
+      }
+    }
+    
+    return false;
+  }
+
+  /// Disconnect printer
+  void disconnect() {
+    try {
+      _printer?.disconnect();
+      _isConnected = false;
+    } catch (e) {
+      print('Disconnect error: $e');
+    }
+  }
+
+  /// Auto-reconnect jika koneksi terputus
+  Future<bool> ensureConnected(String printerIp) async {
+    if (_isConnected && _lastConnectedIp == printerIp) {
+      return true;
+    }
+    return await connect(printerIp);
+  }
+
+  /// Scan printer dengan parallel processing
+  Future<List<PrinterDevice>> scanPrinters({
     String subnet = '192.168.1',
     int port = 9100,
-    Duration timeout = const Duration(milliseconds: 100),
+    Duration timeout = const Duration(milliseconds: 500),
   }) async {
-    final List<String> devices = [];
-    final List<Future<void>> futures = [];
+    final List<PrinterDevice> devices = [];
+    final List<Future<PrinterDevice?>> futures = [];
 
-    // Scan parallel untuk performa lebih baik
     for (int i = 1; i <= 255; i++) {
       final String ip = '$subnet.$i';
-      futures.add(
-        _checkPrinterAtIP(ip, port, timeout).then((found) {
-          if (found) devices.add(ip);
-        }),
-      );
+      futures.add(_checkPrinter(ip, port, timeout));
     }
 
-    await Future.wait(futures);
+    final results = await Future.wait(futures);
+    devices.addAll(results.whereType<PrinterDevice>());
+    
     return devices;
   }
 
-  Future<bool> _checkPrinterAtIP(String ip, int port, Duration timeout) async {
+  Future<PrinterDevice?> _checkPrinter(
+    String ip,
+    int port,
+    Duration timeout,
+  ) async {
     try {
       final socket = await Socket.connect(ip, port, timeout: timeout);
+      
+      // Try to get printer info
+      socket.add([0x1D, 0x49, 0x01]); // ESC/POS command untuk printer ID
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      final data = await socket.first.timeout(
+        const Duration(milliseconds: 500),
+        onTimeout: () => Uint8List(0),
+      );
+      
       socket.destroy();
-      return true;
+      
+      return PrinterDevice(
+        ip: ip,
+        port: port,
+        name: 'Printer $ip',
+        model: data.isNotEmpty ? 'Thermal Printer' : 'Unknown',
+        isOnline: true,
+      );
     } catch (e) {
-      return false;
+      return null;
     }
   }
 
-  /// Test koneksi ke printer
-  Future<bool> testConnection(String printerIp, {int port = 9100}) async {
+  /// Test koneksi dengan print test page
+  Future<PrintResult> testConnection(
+    String printerIp, {
+    int port = 9100,
+  }) async {
     try {
-      final profile = await CapabilityProfile.load();
-      final printer = NetworkPrinter(PAPER_58MM, profile);
-
-      final result = await printer.connect(
-        printerIp,
-        port: port,
-        timeout: const Duration(seconds: 5),
-      );
-
-      if (result == PosPrintResult.success) {
-        // Print test page
-        printer.text('TEST KONEKSI BERHASIL',
-            styles: const PosStyles(align: PosAlign.center, bold: true));
-        printer.text(DateTime.now().toString(),
-            styles: const PosStyles(align: PosAlign.center));
-        printer.feed(2);
-        printer.cut();
-        printer.disconnect();
-        return true;
+      final connected = await connect(printerIp, port: port);
+      if (!connected) {
+        return PrintResult.connectionFailed;
       }
-      return false;
+
+      // Print test page
+      _printer!.text(
+        'TEST KONEKSI',
+        styles: const PosStyles(
+          align: PosAlign.center,
+          bold: true,
+          height: PosTextSize.size2,
+          width: PosTextSize.size2,
+        ),
+      );
+      _printer!.feed(1);
+      _printer!.text(
+        '✓ Printer Terhubung',
+        styles: const PosStyles(align: PosAlign.center),
+      );
+      _printer!.feed(1);
+      _printer!.text(
+        DateTime.now().toString(),
+        styles: const PosStyles(align: PosAlign.center, width: PosTextSize.size1),
+      );
+      _printer!.feed(2);
+      _printer!.cut();
+      
+      disconnect();
+      return PrintResult.success;
     } catch (e) {
       print('Test connection error: $e');
-      return false;
+      return PrintResult.printerError;
     }
   }
 
-  /// Print Receipt Transaksi (Enhanced Version)
-  Future<bool> printReceipt({
+  /// Print Receipt dengan retry dan better error handling
+  Future<PrintResult> printReceipt({
     required String printerIp,
     required Transaction transaction,
     required String shopName,
     String? shopAddress,
     String? shopPhone,
     String? footerNote,
-    Uint8List? logoImage, // Optional logo
+    Uint8List? logoImage,
     bool printQRCode = false,
     PaperSize paperSize = PAPER_58MM,
+    int copies = 1,
+    bool autoCut = true,
   }) async {
+    // Validate inputs
+    if (printerIp.isEmpty) {
+      return PrintResult.connectionFailed;
+    }
+
     try {
-      final profile = await CapabilityProfile.load();
-      final printer = NetworkPrinter(paperSize, profile);
-
-      final result = await printer.connect(
-        printerIp,
-        port: 9100,
-        timeout: const Duration(seconds: 5),
-      );
-
-      if (result != PosPrintResult.success) {
-        return false;
+      // Ensure connection
+      final connected = await ensureConnected(printerIp);
+      if (!connected) {
+        return PrintResult.connectionFailed;
       }
 
-      // === PRINT HEADER ===
-      // Logo jika ada
-      if (logoImage != null) {
-        final image = img.decodeImage(logoImage);
-        if (image != null) {
-          printer.image(image);
-          printer.feed(1);
+      // Print multiple copies
+      for (int copy = 1; copy <= copies; copy++) {
+        await _printReceiptContent(
+          transaction: transaction,
+          shopName: shopName,
+          shopAddress: shopAddress,
+          shopPhone: shopPhone,
+          footerNote: footerNote,
+          logoImage: logoImage,
+          printQRCode: printQRCode,
+          paperSize: paperSize,
+          autoCut: autoCut && copy == copies, // Cut only on last copy
+          copyNumber: copies > 1 ? copy : null,
+        );
+
+        // Delay between copies
+        if (copy < copies) {
+          await Future.delayed(const Duration(seconds: 1));
         }
       }
 
-      // Shop Name
-      printer.text(
-        shopName,
+      disconnect();
+      return PrintResult.success;
+    } on SocketException {
+      return PrintResult.connectionFailed;
+    } on TimeoutException {
+      return PrintResult.timeout;
+    } catch (e) {
+      print('Print error: $e');
+      return PrintResult.printerError;
+    }
+  }
+
+  /// Internal method untuk print content
+  Future<void> _printReceiptContent({
+    required Transaction transaction,
+    required String shopName,
+    String? shopAddress,
+    String? shopPhone,
+    String? footerNote,
+    Uint8List? logoImage,
+    bool printQRCode = false,
+    PaperSize paperSize = PAPER_58MM,
+    bool autoCut = true,
+    int? copyNumber,
+  }) async {
+    if (_printer == null) throw Exception('Printer not connected');
+
+    // === HEADER ===
+    if (logoImage != null) {
+      final image = img.decodeImage(logoImage);
+      if (image != null) {
+        // Resize logo to fit paper width
+        final resized = img.copyResize(
+          image,
+          width: paperSize == PAPER_58MM ? 300 : 450,
+        );
+        _printer!.image(resized);
+        _printer!.feed(1);
+      }
+    }
+
+    // Shop Name - Prominent
+    _printer!.text(
+      shopName,
+      styles: const PosStyles(
+        align: PosAlign.center,
+        height: PosTextSize.size2,
+        width: PosTextSize.size2,
+        bold: true,
+      ),
+    );
+
+    // Shop Details
+    if (shopAddress != null && shopAddress.isNotEmpty) {
+      _printer!.text(
+        shopAddress,
         styles: const PosStyles(
           align: PosAlign.center,
-          height: PosTextSize.size2,
-          width: PosTextSize.size2,
-          bold: true,
+          width: PosTextSize.size1,
         ),
       );
+    }
+    if (shopPhone != null && shopPhone.isNotEmpty) {
+      _printer!.text(
+        'Telp: $shopPhone',
+        styles: const PosStyles(align: PosAlign.center),
+      );
+    }
 
-      // Shop Details
-      if (shopAddress != null) {
-        printer.text(shopAddress,
-            styles: const PosStyles(align: PosAlign.center));
-      }
-      if (shopPhone != null) {
-        printer.text('Telp: $shopPhone',
-            styles: const PosStyles(align: PosAlign.center));
-      }
+    _printer!.feed(1);
+    _printer!.text(_getDivider(paperSize));
 
-      printer.feed(1);
-      printer.text(_getDivider(paperSize));
+    // === TRANSACTION INFO ===
+    _printer!.text('No: ${transaction.transactionNumber}');
+    _printer!.text(
+      'Tgl: ${DateFormat('dd/MM/yyyy HH:mm', 'id_ID').format(transaction.transactionDate)}',
+    );
 
-      // === TRANSACTION INFO ===
-      printer.text('No: ${transaction.transactionNumber}');
-      printer.text(
-          'Tgl: ${DateFormat('dd/MM/yyyy HH:mm').format(transaction.transactionDate)}');
+    if (transaction.customerName != null) {
+      _printer!.text('Pelanggan: ${transaction.customerName}');
+    }
 
-      if (transaction.customerName != null) {
-        printer.text('Pelanggan: ${transaction.customerName}');
-      }
+    // Copy indicator
+    if (copyNumber != null) {
+      _printer!.text(
+        'Salinan ke-$copyNumber',
+        styles: const PosStyles(align: PosAlign.center),
+      );
+    }
 
-      printer.text(_getDivider(paperSize));
-      printer.feed(1);
+    _printer!.text(_getDivider(paperSize));
+    _printer!.feed(1);
 
-      // === ITEMS ===
-      for (final item in transaction.items) {
-        // Product name
-        printer.text(item.productName, styles: const PosStyles(bold: true));
+    // === ITEMS ===
+    for (final item in transaction.items) {
+      // Product name - Bold
+      _printer!.text(
+        item.productName,
+        styles: const PosStyles(bold: true),
+      );
 
-        // Quantity x Price = Subtotal
-        final qtyLine =
-            '${item.quantity} x ${_formatCurrency(item.sellingPrice)}';
-        final subtotalLine = _formatCurrency(item.subtotal);
+      // Quantity x Price = Subtotal
+      final qtyLine = '${item.quantity} x ${_formatCurrency(item.sellingPrice)}';
+      final subtotalLine = _formatCurrency(item.subtotal);
 
-        printer.row([
+      _printer!.row([
+        PosColumn(
+          text: qtyLine,
+          width: paperSize == PAPER_58MM ? 8 : 9,
+        ),
+        PosColumn(
+          text: subtotalLine,
+          width: paperSize == PAPER_58MM ? 4 : 3,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+    }
+
+    _printer!.text(_getDivider(paperSize, char: '-'));
+
+    // === TOTAL ===
+    _printer!.row([
+      PosColumn(
+        text: 'TOTAL:',
+        width: 6,
+        styles: const PosStyles(bold: true, height: PosTextSize.size2),
+      ),
+      PosColumn(
+        text: _formatCurrency(transaction.totalAmount),
+        width: 6,
+        styles: const PosStyles(
+          bold: true,
+          align: PosAlign.right,
+          height: PosTextSize.size2,
+        ),
+      ),
+    ]);
+
+    // === PAYMENT DETAILS ===
+    if (transaction.paymentType == PaymentType.CREDIT) {
+      _printer!.text(_getDivider(paperSize, char: '-'));
+      _printer!.text('DETAIL KREDIT:', styles: const PosStyles(bold: true));
+
+      if (transaction.interestRate > 0) {
+        _printer!.row([
+          PosColumn(text: 'Bunga:', width: 6),
           PosColumn(
-            text: qtyLine,
-            width: paperSize == PAPER_58MM ? 8 : 9,
-            styles: const PosStyles(align: PosAlign.left),
-          ),
-          PosColumn(
-            text: subtotalLine,
-            width: paperSize == PAPER_58MM ? 4 : 3,
+            text: '${transaction.interestRate}%',
+            width: 6,
             styles: const PosStyles(align: PosAlign.right),
           ),
         ]);
       }
 
-      printer.text(_getDivider(paperSize, char: '-'));
-
-      // === TOTAL ===
-      printer.row([
-        PosColumn(
-          text: 'TOTAL:',
-          width: 6,
-          styles: const PosStyles(bold: true, height: PosTextSize.size2),
-        ),
-        PosColumn(
-          text: _formatCurrency(transaction.totalAmount),
-          width: 6,
-          styles: const PosStyles(
-            bold: true,
-            align: PosAlign.right,
-            height: PosTextSize.size2,
-          ),
-        ),
-      ]);
-
-      // === PAYMENT DETAILS ===
-      if (transaction.paymentType == PaymentType.CREDIT) {
-        printer.text(_getDivider(paperSize, char: '-'));
-        printer.text('DETAIL KREDIT:', styles: const PosStyles(bold: true));
-
-        if (transaction.interestRate > 0) {
-          printer.row([
-            PosColumn(text: 'Bunga:', width: 6),
-            PosColumn(
-              text: '${transaction.interestRate}%',
-              width: 6,
-              styles: const PosStyles(align: PosAlign.right),
-            ),
-          ]);
-        }
-
-        if (transaction.tenor > 0) {
-          printer.row([
-            PosColumn(text: 'Tenor:', width: 6),
-            PosColumn(
-              text: '${transaction.tenor} bulan',
-              width: 6,
-              styles: const PosStyles(align: PosAlign.right),
-            ),
-          ]);
-        }
-
-        if (transaction.downPayment > 0) {
-          printer.row([
-            PosColumn(text: 'DP:', width: 6),
-            PosColumn(
-              text: _formatCurrency(transaction.downPayment),
-              width: 6,
-              styles: const PosStyles(align: PosAlign.right),
-            ),
-          ]);
-        }
-
-        printer.row([
-          PosColumn(text: 'Sisa Utang:', width: 6),
+      if (transaction.tenor > 0) {
+        _printer!.row([
+          PosColumn(text: 'Tenor:', width: 6),
           PosColumn(
-            text: _formatCurrency(transaction.remainingDebt),
+            text: '${transaction.tenor} bulan',
             width: 6,
-            styles:
-                const PosStyles(align: PosAlign.right, bold: true),
+            styles: const PosStyles(align: PosAlign.right),
           ),
         ]);
       }
 
-      // === PAYMENT TYPE ===
-      printer.text(_getDivider(paperSize, char: '-'));
-      String paymentText = 'Pembayaran: ';
-      if (transaction.paymentType == PaymentType.CASH) {
-        paymentText += 'TUNAI';
-      } else if (transaction.paymentType == PaymentType.CREDIT) {
-        paymentText += 'KREDIT';
-      } else {
-        paymentText += 'TRANSFER';
+      if (transaction.downPayment > 0) {
+        _printer!.row([
+          PosColumn(text: 'DP:', width: 6),
+          PosColumn(
+            text: _formatCurrency(transaction.downPayment),
+            width: 6,
+            styles: const PosStyles(align: PosAlign.right),
+          ),
+        ]);
       }
-      printer.text(paymentText, styles: const PosStyles(bold: true));
 
-      // === QR CODE (Optional) ===
-      if (printQRCode && transaction.id != null) {
-        printer.feed(1);
-        printer.qrcode(
+      _printer!.row([
+        PosColumn(text: 'Sisa Utang:', width: 6),
+        PosColumn(
+          text: _formatCurrency(transaction.remainingDebt),
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right, bold: true),
+        ),
+      ]);
+    }
+
+    // === PAYMENT TYPE ===
+    _printer!.text(_getDivider(paperSize, char: '-'));
+    String paymentText = 'Pembayaran: ';
+    if (transaction.paymentType == PaymentType.CASH) {
+      paymentText += 'TUNAI';
+    } else if (transaction.paymentType == PaymentType.CREDIT) {
+      paymentText += 'KREDIT';
+    } else {
+      paymentText += 'TRANSFER';
+    }
+    _printer!.text(paymentText, styles: const PosStyles(bold: true));
+
+    // === QR CODE ===
+    if (printQRCode && transaction.id != null) {
+      _printer!.feed(1);
+      try {
+        _printer!.qrcode(
           'TRX-${transaction.id}',
           align: PosAlign.center,
           size: QRSize.Size6,
         );
-        printer.text('Scan untuk verifikasi',
-            styles: const PosStyles(align: PosAlign.center, width: PosTextSize.size1));
+        _printer!.text(
+          'Scan untuk verifikasi',
+          styles: const PosStyles(
+            align: PosAlign.center,
+            width: PosTextSize.size1,
+          ),
+        );
+      } catch (e) {
+        print('QR Code error: $e');
       }
+    }
 
-      // === FOOTER ===
-      printer.feed(1);
-      printer.text(_getDivider(paperSize));
+    // === FOOTER ===
+    _printer!.feed(1);
+    _printer!.text(_getDivider(paperSize));
 
-      if (footerNote != null && footerNote.isNotEmpty) {
-        printer.text(footerNote,
-            styles: const PosStyles(align: PosAlign.center));
-      }
-
-      printer.text('Terima Kasih',
-          styles: const PosStyles(align: PosAlign.center, bold: true));
-
-      // Print timestamp
-      printer.text(
-        'Dicetak: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
+    if (footerNote != null && footerNote.isNotEmpty) {
+      _printer!.text(
+        footerNote,
         styles: const PosStyles(align: PosAlign.center),
       );
+    }
 
-      printer.feed(2);
-      printer.cut();
-      printer.disconnect();
+    _printer!.text(
+      'Terima Kasih',
+      styles: const PosStyles(align: PosAlign.center, bold: true),
+    );
 
-      return true;
-    } catch (e) {
-      print('Print error: $e');
-      return false;
+    _printer!.text(
+      'Dicetak: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
+      styles: const PosStyles(align: PosAlign.center),
+    );
+
+    _printer!.feed(2);
+    
+    if (autoCut) {
+      _printer!.cut();
     }
   }
 
-  /// Print Nota Pembayaran Utang
-  Future<bool> printPaymentReceipt({
+  /// Print Payment Receipt
+  Future<PrintResult> printPaymentReceipt({
     required String printerIp,
     required String transactionNumber,
     required String customerName,
@@ -320,80 +515,98 @@ class EnhancedPrinterService {
     String? notes,
   }) async {
     try {
-      final profile = await CapabilityProfile.load();
-      final printer = NetworkPrinter(PAPER_58MM, profile);
-
-      final result = await printer.connect(printerIp, port: 9100);
-      if (result != PosPrintResult.success) return false;
-
-      // Header
-      printer.text(shopName,
-          styles: const PosStyles(
-              align: PosAlign.center, height: PosTextSize.size2, bold: true));
-      printer.text('NOTA PEMBAYARAN',
-          styles: const PosStyles(align: PosAlign.center, bold: true));
-      printer.text('================================');
-
-      // Details
-      printer.text('Tgl: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}');
-      printer.text('Pelanggan: $customerName');
-      printer.text('Ref: $transactionNumber');
-      printer.text('--------------------------------');
-
-      // Amount Details
-      printer.row([
-        PosColumn(text: 'Utang Sebelum:', width: 7),
-        PosColumn(
-            text: _formatCurrency(previousDebt),
-            width: 5,
-            styles: const PosStyles(align: PosAlign.right)),
-      ]);
-
-      printer.row([
-        PosColumn(text: 'Dibayar:', width: 7),
-        PosColumn(
-            text: _formatCurrency(paymentAmount),
-            width: 5,
-            styles: const PosStyles(align: PosAlign.right, bold: true)),
-      ]);
-
-      printer.text('================================');
-
-      printer.row([
-        PosColumn(text: 'SISA UTANG:', width: 7, styles: const PosStyles(bold: true)),
-        PosColumn(
-            text: _formatCurrency(remainingDebt),
-            width: 5,
-            styles: const PosStyles(
-                align: PosAlign.right,
-                bold: true,
-                height: PosTextSize.size2)),
-      ]);
-
-      printer.text('--------------------------------');
-      printer.text('Metode: $paymentMethod');
-
-      if (notes != null && notes.isNotEmpty) {
-        printer.text('Catatan: $notes');
+      final connected = await ensureConnected(printerIp);
+      if (!connected) {
+        return PrintResult.connectionFailed;
       }
 
-      printer.feed(1);
-      printer.text('Terima Kasih',
-          styles: const PosStyles(align: PosAlign.center, bold: true));
+      // Header
+      _printer!.text(
+        shopName,
+        styles: const PosStyles(
+          align: PosAlign.center,
+          height: PosTextSize.size2,
+          bold: true,
+        ),
+      );
+      _printer!.text(
+        'NOTA PEMBAYARAN',
+        styles: const PosStyles(align: PosAlign.center, bold: true),
+      );
+      _printer!.text('================================');
 
-      printer.feed(2);
-      printer.cut();
-      printer.disconnect();
+      // Details
+      _printer!.text(
+        'Tgl: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
+      );
+      _printer!.text('Pelanggan: $customerName');
+      _printer!.text('Ref: $transactionNumber');
+      _printer!.text('--------------------------------');
 
-      return true;
+      // Amount Details
+      _printer!.row([
+        PosColumn(text: 'Utang Sebelum:', width: 7),
+        PosColumn(
+          text: _formatCurrency(previousDebt),
+          width: 5,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+
+      _printer!.row([
+        PosColumn(text: 'Dibayar:', width: 7),
+        PosColumn(
+          text: _formatCurrency(paymentAmount),
+          width: 5,
+          styles: const PosStyles(align: PosAlign.right, bold: true),
+        ),
+      ]);
+
+      _printer!.text('================================');
+
+      _printer!.row([
+        PosColumn(
+          text: 'SISA UTANG:',
+          width: 7,
+          styles: const PosStyles(bold: true),
+        ),
+        PosColumn(
+          text: _formatCurrency(remainingDebt),
+          width: 5,
+          styles: const PosStyles(
+            align: PosAlign.right,
+            bold: true,
+            height: PosTextSize.size2,
+          ),
+        ),
+      ]);
+
+      _printer!.text('--------------------------------');
+      _printer!.text('Metode: $paymentMethod');
+
+      if (notes != null && notes.isNotEmpty) {
+        _printer!.text('Catatan: $notes');
+      }
+
+      _printer!.feed(1);
+      _printer!.text(
+        'Terima Kasih',
+        styles: const PosStyles(align: PosAlign.center, bold: true),
+      );
+
+      _printer!.feed(2);
+      _printer!.cut();
+      
+      disconnect();
+      return PrintResult.success;
     } catch (e) {
       print('Print payment error: $e');
-      return false;
+      return PrintResult.printerError;
     }
   }
 
-  /// Print Laporan Harian
-  Future<bool> printDailyReport({
+  /// Print Daily Report
+  Future<PrintResult> printDailyReport({
     required String printerIp,
     required String shopName,
     required DateTime reportDate,
@@ -405,98 +618,114 @@ class EnhancedPrinterService {
     Map<String, dynamic>? additionalData,
   }) async {
     try {
-      final profile = await CapabilityProfile.load();
-      final printer = NetworkPrinter(PAPER_58MM, profile);
-
-      final result = await printer.connect(printerIp, port: 9100);
-      if (result != PosPrintResult.success) return false;
+      final connected = await ensureConnected(printerIp);
+      if (!connected) {
+        return PrintResult.connectionFailed;
+      }
 
       // Header
-      printer.text(shopName,
-          styles: const PosStyles(
-              align: PosAlign.center, height: PosTextSize.size2, bold: true));
-      printer.text('LAPORAN HARIAN',
-          styles: const PosStyles(align: PosAlign.center, bold: true));
-      printer.text(DateFormat('dd MMMM yyyy', 'id_ID').format(reportDate),
-          styles: const PosStyles(align: PosAlign.center));
-      printer.text('================================');
+      _printer!.text(
+        shopName,
+        styles: const PosStyles(
+          align: PosAlign.center,
+          height: PosTextSize.size2,
+          bold: true,
+        ),
+      );
+      _printer!.text(
+        'LAPORAN HARIAN',
+        styles: const PosStyles(align: PosAlign.center, bold: true),
+      );
+      _printer!.text(
+        DateFormat('dd MMMM yyyy', 'id_ID').format(reportDate),
+        styles: const PosStyles(align: PosAlign.center),
+      );
+      _printer!.text('================================');
 
       // Summary
-      printer.row([
+      _printer!.row([
         PosColumn(text: 'Total Transaksi:', width: 7),
         PosColumn(
-            text: '$transactionCount',
-            width: 5,
-            styles: const PosStyles(align: PosAlign.right)),
+          text: '$transactionCount',
+          width: 5,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
       ]);
 
-      printer.row([
+      _printer!.row([
         PosColumn(text: 'Total Penjualan:', width: 7),
         PosColumn(
-            text: _formatCurrency(totalSales),
-            width: 5,
-            styles: const PosStyles(align: PosAlign.right, bold: true)),
+          text: _formatCurrency(totalSales),
+          width: 5,
+          styles: const PosStyles(align: PosAlign.right, bold: true),
+        ),
       ]);
 
-      printer.row([
+      _printer!.row([
         PosColumn(text: 'Total Profit:', width: 7),
         PosColumn(
-            text: _formatCurrency(totalProfit),
-            width: 5,
-            styles: const PosStyles(align: PosAlign.right)),
+          text: _formatCurrency(totalProfit),
+          width: 5,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
       ]);
 
-      printer.text('--------------------------------');
+      _printer!.text('--------------------------------');
 
       // Payment breakdown
-      printer.text('Rincian Pembayaran:', styles: const PosStyles(bold: true));
-      printer.row([
+      _printer!.text('Rincian Pembayaran:', styles: const PosStyles(bold: true));
+      _printer!.row([
         PosColumn(text: '  Tunai:', width: 7),
         PosColumn(
-            text: _formatCurrency(cashSales),
-            width: 5,
-            styles: const PosStyles(align: PosAlign.right)),
+          text: _formatCurrency(cashSales),
+          width: 5,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
       ]);
 
-      printer.row([
+      _printer!.row([
         PosColumn(text: '  Kredit:', width: 7),
         PosColumn(
-            text: _formatCurrency(creditSales),
-            width: 5,
-            styles: const PosStyles(align: PosAlign.right)),
+          text: _formatCurrency(creditSales),
+          width: 5,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
       ]);
 
-      // Additional data if provided
+      // Additional data
       if (additionalData != null && additionalData.isNotEmpty) {
-        printer.text('--------------------------------');
+        _printer!.text('--------------------------------');
         additionalData.forEach((key, value) {
-          printer.row([
+          _printer!.row([
             PosColumn(text: key, width: 7),
             PosColumn(
-                text: value.toString(),
-                width: 5,
-                styles: const PosStyles(align: PosAlign.right)),
+              text: value.toString(),
+              width: 5,
+              styles: const PosStyles(align: PosAlign.right),
+            ),
           ]);
         });
       }
 
-      printer.text('================================');
-      printer.text(
-          'Dicetak: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
-          styles: const PosStyles(align: PosAlign.center));
+      _printer!.text('================================');
+      _printer!.text(
+        'Dicetak: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
+        styles: const PosStyles(align: PosAlign.center),
+      );
 
-      printer.feed(2);
-      printer.cut();
-      printer.disconnect();
-
-      return true;
+      _printer!.feed(2);
+      _printer!.cut();
+      
+      disconnect();
+      return PrintResult.success;
     } catch (e) {
       print('Print daily report error: $e');
-      return false;
+      return PrintResult.printerError;
     }
   }
 
-  // Helper methods
+  // === HELPER METHODS ===
+
   String _formatCurrency(double amount) {
     final formatter = NumberFormat.currency(
       locale: 'id_ID',
@@ -510,4 +739,21 @@ class EnhancedPrinterService {
     final length = size == PAPER_58MM ? 32 : 48;
     return char * length;
   }
+}
+
+/// Model untuk printer device
+class PrinterDevice {
+  final String ip;
+  final int port;
+  final String name;
+  final String model;
+  final bool isOnline;
+
+  PrinterDevice({
+    required this.ip,
+    required this.port,
+    required this.name,
+    required this.model,
+    required this.isOnline,
+  });
 }

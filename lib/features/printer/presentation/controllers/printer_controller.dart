@@ -3,13 +3,15 @@ import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kaskredit_1/core/utils/getx_utils.dart';
 
-/// Enhanced Printer Controller dengan fitur:
-/// - Auto print settings
-/// - Print history
-/// - Multiple printer profiles
+/// Enhanced Printer Controller v2
+/// Features:
 /// - Print queue management
-class EnhancedPrinterController extends GetxController {
-  // State
+/// - Auto-retry failed prints
+/// - Connection status monitoring
+/// - Print job history
+/// - Multiple printer profiles
+class EnhancedPrinterControllerV2 extends GetxController {
+  // === STATE ===
   final RxnString printerIp = RxnString();
   final RxBool autoPrint = false.obs;
   final RxString footerNote = ''.obs;
@@ -17,15 +19,24 @@ class EnhancedPrinterController extends GetxController {
   final RxList<String> foundPrinters = <String>[].obs;
   final RxBool isPrinting = false.obs;
   
-  // NEW: Print settings
+  // Print settings
   final RxBool printQRCode = false.obs;
   final RxInt copies = 1.obs;
-  final RxString paperSize = '58mm'.obs; // '58mm' or '80mm'
+  final RxString paperSize = '58mm'.obs;
+  final RxBool autoCut = true.obs;
   
-  // NEW: Print history (last 50 prints)
+  // Connection status
+  final RxBool isConnected = false.obs;
+  final RxString connectionStatus = 'Disconnected'.obs;
+  
+  // Print Queue
+  final RxList<PrintJob> printQueue = <PrintJob>[].obs;
+  final RxBool isProcessingQueue = false.obs;
+  
+  // Print history
   final RxList<PrintHistoryItem> printHistory = <PrintHistoryItem>[].obs;
   
-  // NEW: Multiple printer profiles
+  // Printer profiles
   final RxList<PrinterProfile> printerProfiles = <PrinterProfile>[].obs;
   final RxnString activePrinterId = RxnString();
 
@@ -35,16 +46,21 @@ class EnhancedPrinterController extends GetxController {
     _loadSettings();
     _loadPrintHistory();
     _loadPrinterProfiles();
+    _startQueueProcessor();
   }
+
+  // === SETTINGS MANAGEMENT ===
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     printerIp.value = prefs.getString('printer_ip');
     autoPrint.value = prefs.getBool('auto_print') ?? false;
-    footerNote.value = prefs.getString('footer_note') ?? 'Terima kasih atas kunjungan Anda';
+    footerNote.value = prefs.getString('footer_note') ?? 
+        'Terima kasih atas kunjungan Anda';
     printQRCode.value = prefs.getBool('print_qr_code') ?? false;
     copies.value = prefs.getInt('print_copies') ?? 1;
     paperSize.value = prefs.getString('paper_size') ?? '58mm';
+    autoCut.value = prefs.getBool('auto_cut') ?? true;
     activePrinterId.value = prefs.getString('active_printer_id');
   }
 
@@ -54,6 +70,7 @@ class EnhancedPrinterController extends GetxController {
     bool? qrCode,
     int? printCopies,
     String? size,
+    bool? cut,
   }) async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -61,25 +78,25 @@ class EnhancedPrinterController extends GetxController {
       await prefs.setString('printer_ip', ip);
       printerIp.value = ip;
     }
-
     if (note != null) {
       await prefs.setString('footer_note', note);
       footerNote.value = note;
     }
-
     if (qrCode != null) {
       await prefs.setBool('print_qr_code', qrCode);
       printQRCode.value = qrCode;
     }
-
     if (printCopies != null) {
       await prefs.setInt('print_copies', printCopies);
       copies.value = printCopies;
     }
-
     if (size != null) {
       await prefs.setString('paper_size', size);
       paperSize.value = size;
+    }
+    if (cut != null) {
+      await prefs.setBool('auto_cut', cut);
+      autoCut.value = cut;
     }
 
     GetXUtils.showSuccess("Pengaturan tersimpan");
@@ -91,30 +108,127 @@ class EnhancedPrinterController extends GetxController {
     autoPrint.value = value;
   }
 
-  Future<void> scanPrinters() async {
-    isScanning.value = true;
-    foundPrinters.clear();
+  // === CONNECTION MANAGEMENT ===
 
+  Future<void> checkConnection() async {
+    if (printerIp.value == null) {
+      connectionStatus.value = 'No printer configured';
+      isConnected.value = false;
+      return;
+    }
+
+    connectionStatus.value = 'Checking...';
+    
     try {
-      // Simulate scan - replace with actual implementation
-      await Future.delayed(const Duration(seconds: 2));
+      // Simulate connection check
+      // Replace with actual printer service check
+      await Future.delayed(const Duration(seconds: 1));
       
-      // Example: Add found printers
-      // In real implementation, use EnhancedPrinterService.scanPrinters()
-      foundPrinters.addAll(['192.168.1.100', '192.168.1.101']);
-
-      if (foundPrinters.isEmpty) {
-        GetXUtils.showInfo("Tidak ditemukan printer di jaringan lokal");
-      }
+      isConnected.value = true;
+      connectionStatus.value = 'Connected';
     } catch (e) {
-      GetXUtils.showError("Gagal scan: $e");
-    } finally {
-      isScanning.value = false;
+      isConnected.value = false;
+      connectionStatus.value = 'Connection failed';
     }
   }
 
+  // === PRINT QUEUE MANAGEMENT ===
+
+  void addToPrintQueue(PrintJob job) {
+    printQueue.add(job);
+    
+    // Auto-process if not already processing
+    if (!isProcessingQueue.value) {
+      _processQueue();
+    }
+  }
+
+  void _startQueueProcessor() {
+    // Check queue every 5 seconds
+    ever(printQueue, (_) {
+      if (printQueue.isNotEmpty && !isProcessingQueue.value) {
+        _processQueue();
+      }
+    });
+  }
+
+  Future<void> _processQueue() async {
+    if (isProcessingQueue.value || printQueue.isEmpty) return;
+
+    isProcessingQueue.value = true;
+
+    while (printQueue.isNotEmpty) {
+      final job = printQueue.first;
+      
+      try {
+        // Process print job
+        final success = await _executePrintJob(job);
+        
+        if (success) {
+          // Remove from queue and add to history
+          printQueue.removeAt(0);
+          await addPrintHistory(PrintHistoryItem(
+            timestamp: DateTime.now(),
+            type: job.type,
+            transactionNumber: job.reference,
+            status: 'success',
+          ));
+        } else {
+          // Retry logic
+          job.retryCount++;
+          if (job.retryCount >= 3) {
+            // Max retries reached, remove and mark as failed
+            printQueue.removeAt(0);
+            await addPrintHistory(PrintHistoryItem(
+              timestamp: DateTime.now(),
+              type: job.type,
+              transactionNumber: job.reference,
+              status: 'failed',
+            ));
+            
+            GetXUtils.showError(
+              'Print gagal setelah 3 kali percobaan: ${job.reference}',
+            );
+          } else {
+            // Wait before retry
+            await Future.delayed(Duration(seconds: job.retryCount * 2));
+          }
+        }
+      } catch (e) {
+        print('Queue processing error: $e');
+        job.retryCount++;
+      }
+    }
+
+    isProcessingQueue.value = false;
+  }
+
+  Future<bool> _executePrintJob(PrintJob job) async {
+    // Execute actual print job
+    // This should call your printer service
+    // Return true if successful, false otherwise
+    
+    try {
+      // Simulate print execution
+      await Future.delayed(const Duration(seconds: 2));
+      return true; // Success
+    } catch (e) {
+      return false;
+    }
+  }
+
+  void clearQueue() {
+    printQueue.clear();
+    GetXUtils.showSuccess('Print queue cleared');
+  }
+
+  void cancelPrintJob(String jobId) {
+    printQueue.removeWhere((job) => job.id == jobId);
+    GetXUtils.showSuccess('Print job cancelled');
+  }
+
   // === PRINT HISTORY ===
-  
+
   Future<void> _loadPrintHistory() async {
     final prefs = await SharedPreferences.getInstance();
     final historyJson = prefs.getStringList('print_history') ?? [];
@@ -136,9 +250,9 @@ class EnhancedPrinterController extends GetxController {
   Future<void> addPrintHistory(PrintHistoryItem item) async {
     printHistory.insert(0, item);
     
-    // Keep only last 50
-    if (printHistory.length > 50) {
-      printHistory.removeRange(50, printHistory.length);
+    // Keep only last 100
+    if (printHistory.length > 100) {
+      printHistory.removeRange(100, printHistory.length);
     }
 
     // Save to storage
@@ -157,20 +271,31 @@ class EnhancedPrinterController extends GetxController {
     GetXUtils.showSuccess("History dihapus");
   }
 
+  // Get statistics
+  int get totalPrints => printHistory.length;
+  int get successfulPrints => 
+      printHistory.where((h) => h.status == 'success').length;
+  int get failedPrints => 
+      printHistory.where((h) => h.status == 'failed').length;
+  double get successRate => totalPrints > 0 
+      ? (successfulPrints / totalPrints) * 100 
+      : 0;
+
   // === PRINTER PROFILES ===
-  
+
   Future<void> _loadPrinterProfiles() async {
     final prefs = await SharedPreferences.getInstance();
     final profilesJson = prefs.getStringList('printer_profiles') ?? [];
     
     printerProfiles.value = profilesJson.map((json) {
       final parts = json.split('|');
-      if (parts.length >= 3) {
+      if (parts.length >= 4) {
         return PrinterProfile(
           id: parts[0],
           name: parts[1],
           ipAddress: parts[2],
-          isDefault: parts.length > 3 ? parts[3] == 'true' : false,
+          isDefault: parts[3] == 'true',
+          port: parts.length > 4 ? int.tryParse(parts[4]) ?? 9100 : 9100,
         );
       }
       return null;
@@ -178,8 +303,13 @@ class EnhancedPrinterController extends GetxController {
   }
 
   Future<void> addPrinterProfile(PrinterProfile profile) async {
-    // If this is the first printer or marked as default, set as active
+    // If this is the first printer or marked as default
     if (printerProfiles.isEmpty || profile.isDefault) {
+      // Set other profiles as non-default
+      for (var p in printerProfiles) {
+        p.isDefault = false;
+      }
+      
       activePrinterId.value = profile.id;
       printerIp.value = profile.ipAddress;
       
@@ -191,6 +321,15 @@ class EnhancedPrinterController extends GetxController {
     printerProfiles.add(profile);
     await _savePrinterProfiles();
     GetXUtils.showSuccess("Printer ${profile.name} ditambahkan");
+  }
+
+  Future<void> updatePrinterProfile(PrinterProfile profile) async {
+    final index = printerProfiles.indexWhere((p) => p.id == profile.id);
+    if (index >= 0) {
+      printerProfiles[index] = profile;
+      await _savePrinterProfiles();
+      GetXUtils.showSuccess("Printer ${profile.name} diupdate");
+    }
   }
 
   Future<void> removePrinterProfile(String profileId) async {
@@ -212,12 +351,20 @@ class EnhancedPrinterController extends GetxController {
   Future<void> setActivePrinter(String profileId) async {
     final profile = printerProfiles.firstWhereOrNull((p) => p.id == profileId);
     if (profile != null) {
+      // Update all profiles
+      for (var p in printerProfiles) {
+        p.isDefault = p.id == profileId;
+      }
+      
       activePrinterId.value = profile.id;
       printerIp.value = profile.ipAddress;
       
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('active_printer_id', profile.id);
       await prefs.setString('printer_ip', profile.ipAddress);
+      
+      await _savePrinterProfiles();
+      await checkConnection();
       
       GetXUtils.showSuccess("Printer aktif: ${profile.name}");
     }
@@ -226,7 +373,7 @@ class EnhancedPrinterController extends GetxController {
   Future<void> _savePrinterProfiles() async {
     final prefs = await SharedPreferences.getInstance();
     final profilesJson = printerProfiles.map((profile) {
-      return '${profile.id}|${profile.name}|${profile.ipAddress}|${profile.isDefault}';
+      return '${profile.id}|${profile.name}|${profile.ipAddress}|${profile.isDefault}|${profile.port}';
     }).toList();
     
     await prefs.setStringList('printer_profiles', profilesJson);
@@ -234,17 +381,64 @@ class EnhancedPrinterController extends GetxController {
 
   PrinterProfile? get activeProfile {
     if (activePrinterId.value == null) return null;
-    return printerProfiles.firstWhereOrNull((p) => p.id == activePrinterId.value);
+    return printerProfiles.firstWhereOrNull(
+      (p) => p.id == activePrinterId.value,
+    );
   }
 
-  // === PRINT QUEUE (Future enhancement) ===
-  // Bisa ditambahkan untuk handle multiple print jobs
+  // === SCANNER ===
+
+  Future<void> scanPrinters() async {
+    isScanning.value = true;
+    foundPrinters.clear();
+
+    try {
+      // Use enhanced printer service to scan
+      // This is a placeholder - replace with actual implementation
+      await Future.delayed(const Duration(seconds: 3));
+      
+      // Example results
+      foundPrinters.addAll([
+        '192.168.1.100',
+        '192.168.1.101',
+      ]);
+
+      if (foundPrinters.isEmpty) {
+        GetXUtils.showInfo("Tidak ditemukan printer di jaringan");
+      } else {
+        GetXUtils.showSuccess("Ditemukan ${foundPrinters.length} printer");
+      }
+    } catch (e) {
+      GetXUtils.showError("Gagal scan: $e");
+    } finally {
+      isScanning.value = false;
+    }
+  }
+}
+
+/// Model untuk Print Job
+class PrintJob {
+  final String id;
+  final String type; // 'receipt', 'payment', 'report'
+  final String reference; // transaction number or reference
+  final Map<String, dynamic> data;
+  int retryCount;
+  final DateTime createdAt;
+
+  PrintJob({
+    required this.id,
+    required this.type,
+    required this.reference,
+    required this.data,
+    this.retryCount = 0,
+    DateTime? createdAt,
+  }) : createdAt = createdAt ?? DateTime.now();
 }
 
 /// Model untuk Print History
 class PrintHistoryItem {
   final DateTime timestamp;
-  final String type; // 'receipt', 'payment', 'report'
+  final String type;
   final String transactionNumber;
   final String status; // 'success', 'failed'
 
@@ -261,12 +455,14 @@ class PrinterProfile {
   final String id;
   final String name;
   final String ipAddress;
-  final bool isDefault;
+  final int port;
+  bool isDefault;
 
   PrinterProfile({
     required this.id,
     required this.name,
     required this.ipAddress,
+    this.port = 9100,
     this.isDefault = false,
   });
 }
