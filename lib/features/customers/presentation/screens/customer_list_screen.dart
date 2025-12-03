@@ -5,12 +5,49 @@ import 'package:kaskredit_1/core/navigation/app_routes.dart';
 import 'package:kaskredit_1/shared/models/customer.dart';
 import 'package:kaskredit_1/shared/utils/formatters.dart';
 
+// Enhanced dengan lebih banyak sort options
+enum CustomerSortType { 
+  nameAsc, 
+  nameDesc, 
+  debtAsc, 
+  debtDesc,
+  recentlyAdded,
+  oldestFirst
+}
+
 class CustomerListScreen extends StatelessWidget {
   const CustomerListScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final CustomerController controller = Get.put(CustomerController());
+    final Rx<CustomerSortType> currentSort = CustomerSortType.nameAsc.obs;
+
+    // Fungsi untuk sorting
+    List<Customer> getSortedCustomers(List<Customer> customers) {
+      final sorted = [...customers];
+      switch (currentSort.value) {
+        case CustomerSortType.nameAsc:
+          sorted.sort((a, b) => a.name.compareTo(b.name));
+          break;
+        case CustomerSortType.nameDesc:
+          sorted.sort((a, b) => b.name.compareTo(a.name));
+          break;
+        case CustomerSortType.debtAsc:
+          sorted.sort((a, b) => a.totalDebt.compareTo(b.totalDebt));
+          break;
+        case CustomerSortType.debtDesc:
+          sorted.sort((a, b) => b.totalDebt.compareTo(a.totalDebt));
+          break;
+        case CustomerSortType.recentlyAdded:
+          sorted.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          break;
+        case CustomerSortType.oldestFirst:
+          sorted.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+          break;
+      }
+      return sorted;
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -20,109 +57,80 @@ class CustomerListScreen extends StatelessWidget {
           Obx(() {
             final currentFilter = controller.currentFilter.value;
             
-            return PopupMenuButton<String>(
+            return PopupMenuButton<CustomerFilter>(
               icon: Badge(
                 isLabelVisible: currentFilter != CustomerFilter.all,
                 label: const Text('1'),
                 child: const Icon(Icons.filter_list),
               ),
-              onSelected: (value) {
-                if (value == 'all') {
-                  controller.setFilter(CustomerFilter.all);
-                } else if (value == 'debt') {
-                  controller.setFilter(CustomerFilter.withDebt);
-                } else if (value == 'no_debt') {
-                  controller.setFilter(CustomerFilter.noDebt);
-                }
-              },
+              tooltip: 'Filter',
+              onSelected: (value) => controller.setFilter(value),
               itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: 'all',
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.people,
-                        size: 20,
-                        color: currentFilter == CustomerFilter.all
-                            ? Colors.blue
-                            : Colors.grey,
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Semua (${controller.totalCustomers})',
-                        style: TextStyle(
-                          fontWeight: currentFilter == CustomerFilter.all
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                        ),
-                      ),
-                      if (currentFilter == CustomerFilter.all)
-                        const Padding(
-                          padding: EdgeInsets.only(left: 8),
-                          child: Icon(Icons.check, size: 16, color: Colors.blue),
-                        ),
-                    ],
-                  ),
+                _buildFilterItem(
+                  CustomerFilter.all,
+                  'Semua (${controller.totalCustomers})',
+                  Icons.people,
+                  currentFilter,
+                  Colors.blue,
                 ),
-                PopupMenuItem(
-                  value: 'debt',
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.credit_card,
-                        size: 20,
-                        color: currentFilter == CustomerFilter.withDebt
-                            ? Colors.red
-                            : Colors.grey,
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Berutang (${controller.debtorsCount})',
-                        style: TextStyle(
-                          fontWeight: currentFilter == CustomerFilter.withDebt
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                        ),
-                      ),
-                      if (currentFilter == CustomerFilter.withDebt)
-                        const Padding(
-                          padding: EdgeInsets.only(left: 8),
-                          child: Icon(Icons.check, size: 16, color: Colors.red),
-                        ),
-                    ],
-                  ),
+                _buildFilterItem(
+                  CustomerFilter.withDebt,
+                  'Berutang (${controller.debtorsCount})',
+                  Icons.credit_card,
+                  currentFilter,
+                  Colors.red,
                 ),
-                PopupMenuItem(
-                  value: 'no_debt',
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.check_circle,
-                        size: 20,
-                        color: currentFilter == CustomerFilter.noDebt
-                            ? Colors.green
-                            : Colors.grey,
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Lunas (${controller.totalCustomers - controller.debtorsCount})',
-                        style: TextStyle(
-                          fontWeight: currentFilter == CustomerFilter.noDebt
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                        ),
-                      ),
-                      if (currentFilter == CustomerFilter.noDebt)
-                        const Padding(
-                          padding: EdgeInsets.only(left: 8),
-                          child: Icon(Icons.check, size: 16, color: Colors.green),
-                        ),
-                    ],
-                  ),
+                _buildFilterItem(
+                  CustomerFilter.noDebt,
+                  'Lunas (${controller.totalCustomers - controller.debtorsCount})',
+                  Icons.check_circle,
+                  currentFilter,
+                  Colors.green,
                 ),
               ],
             );
           }),
+          
+          // Sort button
+          PopupMenuButton<CustomerSortType>(
+            icon: const Icon(Icons.sort),
+            tooltip: 'Urutkan',
+            onSelected: (value) => currentSort.value = value,
+            itemBuilder: (context) => [
+              _buildSortItem(
+                CustomerSortType.nameAsc,
+                'Nama (A-Z)',
+                Icons.sort_by_alpha,
+              ),
+              _buildSortItem(
+                CustomerSortType.nameDesc,
+                'Nama (Z-A)',
+                Icons.sort_by_alpha,
+              ),
+              const PopupMenuDivider(),
+              _buildSortItem(
+                CustomerSortType.debtDesc,
+                'Utang Terbesar',
+                Icons.arrow_downward,
+              ),
+              _buildSortItem(
+                CustomerSortType.debtAsc,
+                'Utang Terkecil',
+                Icons.arrow_upward,
+              ),
+              const PopupMenuDivider(),
+              _buildSortItem(
+                CustomerSortType.recentlyAdded,
+                'Terbaru',
+                Icons.fiber_new,
+              ),
+              _buildSortItem(
+                CustomerSortType.oldestFirst,
+                'Terlama',
+                Icons.history,
+              ),
+            ],
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -162,6 +170,54 @@ class CustomerListScreen extends StatelessWidget {
             ),
           ),
 
+          // Active Filters Display
+          Obx(() {
+            final hasFilter = controller.currentFilter.value != CustomerFilter.all;
+            final hasSort = currentSort.value != CustomerSortType.nameAsc;
+            
+            if (!hasFilter && !hasSort) return const SizedBox.shrink();
+
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: Colors.blue.withOpacity(0.05),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, size: 16, color: Colors.blue),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Wrap(
+                      spacing: 8,
+                      children: [
+                        if (hasFilter)
+                          Chip(
+                            label: Text(_getFilterLabel(controller.currentFilter.value)),
+                            deleteIcon: const Icon(Icons.close, size: 16),
+                            onDeleted: () => controller.setFilter(CustomerFilter.all),
+                            backgroundColor: Colors.blue.withOpacity(0.1),
+                          ),
+                        if (hasSort)
+                          Chip(
+                            label: Text(_getSortLabel(currentSort.value)),
+                            deleteIcon: const Icon(Icons.close, size: 16),
+                            onDeleted: () => currentSort.value = CustomerSortType.nameAsc,
+                            backgroundColor: Colors.green.withOpacity(0.1),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (hasFilter || hasSort)
+                    TextButton(
+                      onPressed: () {
+                        controller.setFilter(CustomerFilter.all);
+                        currentSort.value = CustomerSortType.nameAsc;
+                      },
+                      child: const Text('Reset'),
+                    ),
+                ],
+              ),
+            );
+          }),
+
           // Summary Stats
           Obx(() {
             final totalDebt = controller.totalDebt;
@@ -170,7 +226,7 @@ class CustomerListScreen extends StatelessWidget {
             if (totalDebt == 0) return const SizedBox.shrink();
 
             return Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -250,7 +306,11 @@ class CustomerListScreen extends StatelessWidget {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              if (controller.filteredCustomers.isEmpty) {
+              // Apply search, filter, and sort
+              var customers = controller.filteredCustomers;
+              customers = getSortedCustomers(customers);
+
+              if (customers.isEmpty) {
                 return Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -294,9 +354,9 @@ class CustomerListScreen extends StatelessWidget {
                 },
                 child: ListView.builder(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
-                  itemCount: controller.filteredCustomers.length,
+                  itemCount: customers.length,
                   itemBuilder: (context, index) {
-                    final customer = controller.filteredCustomers[index];
+                    final customer = customers[index];
                     return _CustomerCard(customer: customer);
                   },
                 ),
@@ -306,6 +366,85 @@ class CustomerListScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  PopupMenuItem<CustomerFilter> _buildFilterItem(
+    CustomerFilter value,
+    String label,
+    IconData icon,
+    CustomerFilter current,
+    Color color,
+  ) {
+    final isSelected = value == current;
+    return PopupMenuItem(
+      value: value,
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 20,
+            color: isSelected ? color : Colors.grey,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ),
+          if (isSelected)
+            Icon(Icons.check, size: 16, color: color),
+        ],
+      ),
+    );
+  }
+
+  PopupMenuItem<CustomerSortType> _buildSortItem(
+    CustomerSortType value,
+    String label,
+    IconData icon,
+  ) {
+    return PopupMenuItem(
+      value: value,
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: Colors.grey),
+          const SizedBox(width: 12),
+          Text(label),
+        ],
+      ),
+    );
+  }
+
+  String _getFilterLabel(CustomerFilter filter) {
+    switch (filter) {
+      case CustomerFilter.withDebt:
+        return 'Berutang';
+      case CustomerFilter.noDebt:
+        return 'Lunas';
+      case CustomerFilter.all:
+      default:
+        return 'Semua';
+    }
+  }
+
+  String _getSortLabel(CustomerSortType sort) {
+    switch (sort) {
+      case CustomerSortType.nameAsc:
+        return 'Nama A-Z';
+      case CustomerSortType.nameDesc:
+        return 'Nama Z-A';
+      case CustomerSortType.debtDesc:
+        return 'Utang Terbesar';
+      case CustomerSortType.debtAsc:
+        return 'Utang Terkecil';
+      case CustomerSortType.recentlyAdded:
+        return 'Terbaru';
+      case CustomerSortType.oldestFirst:
+        return 'Terlama';
+    }
   }
 }
 

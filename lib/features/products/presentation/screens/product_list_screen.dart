@@ -5,53 +5,143 @@ import 'package:kaskredit_1/features/products/presentation/controllers/product_c
 import 'package:kaskredit_1/shared/utils/formatters.dart';
 import 'package:kaskredit_1/shared/models/product.dart';
 
+// Enhanced dengan Filter & Sort functionality
+enum ProductSortType { nameAsc, nameDesc, priceAsc, priceDesc, stockAsc, stockDesc }
+enum ProductFilterType { all, lowStock, active, inactive }
+
 class ProductListScreen extends StatelessWidget {
   const ProductListScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final ProductController controller = Get.put(ProductController());
+    
+    // Tambahkan reactive state untuk filter & sort
+    final Rx<ProductSortType> currentSort = ProductSortType.nameAsc.obs;
+    final Rx<ProductFilterType> currentFilter = ProductFilterType.all.obs;
+
+    // Fungsi untuk sorting
+    List<Product> getSortedProducts(List<Product> products) {
+      final sorted = [...products];
+      switch (currentSort.value) {
+        case ProductSortType.nameAsc:
+          sorted.sort((a, b) => a.name.compareTo(b.name));
+          break;
+        case ProductSortType.nameDesc:
+          sorted.sort((a, b) => b.name.compareTo(a.name));
+          break;
+        case ProductSortType.priceAsc:
+          sorted.sort((a, b) => a.sellingPrice.compareTo(b.sellingPrice));
+          break;
+        case ProductSortType.priceDesc:
+          sorted.sort((a, b) => b.sellingPrice.compareTo(a.sellingPrice));
+          break;
+        case ProductSortType.stockAsc:
+          sorted.sort((a, b) => a.stock.compareTo(b.stock));
+          break;
+        case ProductSortType.stockDesc:
+          sorted.sort((a, b) => b.stock.compareTo(a.stock));
+          break;
+      }
+      return sorted;
+    }
+
+    // Fungsi untuk filtering
+    List<Product> getFilteredProducts(List<Product> products) {
+      switch (currentFilter.value) {
+        case ProductFilterType.lowStock:
+          return products.where((p) => p.stock <= p.minStock).toList();
+        case ProductFilterType.active:
+          return products.where((p) => p.isActive).toList();
+        case ProductFilterType.inactive:
+          return products.where((p) => !p.isActive).toList();
+        case ProductFilterType.all:
+        default:
+          return products;
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(
         title: const Text("Produk"),
         actions: [
-          // Sort/Filter button
-          PopupMenuButton<String>(
+          // Filter button
+          Obx(() {
+            final hasFilter = currentFilter.value != ProductFilterType.all;
+            return Badge(
+              isLabelVisible: hasFilter,
+              label: const Text('1'),
+              child: PopupMenuButton<ProductFilterType>(
+                icon: const Icon(Icons.filter_list),
+                tooltip: 'Filter',
+                onSelected: (value) => currentFilter.value = value,
+                itemBuilder: (context) => [
+                  _buildFilterItem(
+                    ProductFilterType.all,
+                    'Semua Produk',
+                    Icons.all_inclusive,
+                    currentFilter.value,
+                  ),
+                  _buildFilterItem(
+                    ProductFilterType.lowStock,
+                    'Stok Rendah',
+                    Icons.warning,
+                    currentFilter.value,
+                  ),
+                  _buildFilterItem(
+                    ProductFilterType.active,
+                    'Aktif',
+                    Icons.check_circle,
+                    currentFilter.value,
+                  ),
+                  _buildFilterItem(
+                    ProductFilterType.inactive,
+                    'Nonaktif',
+                    Icons.block,
+                    currentFilter.value,
+                  ),
+                ],
+              ),
+            );
+          }),
+          
+          // Sort button
+          PopupMenuButton<ProductSortType>(
             icon: const Icon(Icons.sort),
-            onSelected: (value) {
-              // TODO: Implement sorting
-            },
+            tooltip: 'Urutkan',
+            onSelected: (value) => currentSort.value = value,
             itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'name',
-                child: Row(
-                  children: [
-                    Icon(Icons.sort_by_alpha, size: 20),
-                    SizedBox(width: 12),
-                    Text('Urutkan Nama'),
-                  ],
-                ),
+              _buildSortItem(
+                ProductSortType.nameAsc,
+                'Nama (A-Z)',
+                Icons.sort_by_alpha,
               ),
-              const PopupMenuItem(
-                value: 'price',
-                child: Row(
-                  children: [
-                    Icon(Icons.attach_money, size: 20),
-                    SizedBox(width: 12),
-                    Text('Urutkan Harga'),
-                  ],
-                ),
+              _buildSortItem(
+                ProductSortType.nameDesc,
+                'Nama (Z-A)',
+                Icons.sort_by_alpha,
               ),
-              const PopupMenuItem(
-                value: 'stock',
-                child: Row(
-                  children: [
-                    Icon(Icons.inventory, size: 20),
-                    SizedBox(width: 12),
-                    Text('Urutkan Stok'),
-                  ],
-                ),
+              const PopupMenuDivider(),
+              _buildSortItem(
+                ProductSortType.priceAsc,
+                'Harga (Termurah)',
+                Icons.arrow_upward,
+              ),
+              _buildSortItem(
+                ProductSortType.priceDesc,
+                'Harga (Termahal)',
+                Icons.arrow_downward,
+              ),
+              const PopupMenuDivider(),
+              _buildSortItem(
+                ProductSortType.stockAsc,
+                'Stok (Terendah)',
+                Icons.arrow_upward,
+              ),
+              _buildSortItem(
+                ProductSortType.stockDesc,
+                'Stok (Tertinggi)',
+                Icons.arrow_downward,
               ),
             ],
           ),
@@ -64,7 +154,7 @@ class ProductListScreen extends StatelessWidget {
       ),
       body: Column(
         children: [
-          // Search bar
+          // Search Bar
           Container(
             padding: const EdgeInsets.all(16),
             color: Colors.white,
@@ -73,9 +163,7 @@ class ProductListScreen extends StatelessWidget {
                 hintText: "Cari produk...",
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: Obx(() {
-                  if (controller.searchQuery.isEmpty) {
-                    return const SizedBox.shrink();
-                  }
+                  if (controller.searchQuery.isEmpty) return const SizedBox.shrink();
                   return IconButton(
                     icon: const Icon(Icons.clear),
                     onPressed: () => controller.updateSearchQuery(''),
@@ -96,14 +184,67 @@ class ProductListScreen extends StatelessWidget {
             ),
           ),
 
+          // Active Filter Chips
+          Obx(() {
+            final hasActiveFilter = currentFilter.value != ProductFilterType.all;
+            final hasActiveSort = currentSort.value != ProductSortType.nameAsc;
+            
+            if (!hasActiveFilter && !hasActiveSort) {
+              return const SizedBox.shrink();
+            }
+
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: Colors.blue.withOpacity(0.05),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, size: 16, color: Colors.blue),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          if (hasActiveFilter)
+                            Chip(
+                              label: Text(_getFilterLabel(currentFilter.value)),
+                              deleteIcon: const Icon(Icons.close, size: 16),
+                              onDeleted: () => currentFilter.value = ProductFilterType.all,
+                              backgroundColor: Colors.blue.withOpacity(0.1),
+                            ),
+                          if (hasActiveFilter && hasActiveSort)
+                            const SizedBox(width: 8),
+                          if (hasActiveSort)
+                            Chip(
+                              label: Text(_getSortLabel(currentSort.value)),
+                              deleteIcon: const Icon(Icons.close, size: 16),
+                              onDeleted: () => currentSort.value = ProductSortType.nameAsc,
+                              backgroundColor: Colors.green.withOpacity(0.1),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      currentFilter.value = ProductFilterType.all;
+                      currentSort.value = ProductSortType.nameAsc;
+                    },
+                    child: const Text('Reset'),
+                  ),
+                ],
+              ),
+            );
+          }),
+
           // Stats Cards
           Obx(() {
-            final products = controller.products;
-            final totalValue = products.fold<double>(
+            final allProducts = controller.products;
+            final totalValue = allProducts.fold<double>(
               0,
               (sum, p) => sum + (p.sellingPrice * p.stock),
             );
-            final lowStock = products.where((p) => p.stock <= p.minStock).length;
+            final lowStock = allProducts.where((p) => p.stock <= p.minStock).length;
 
             return Container(
               height: 100,
@@ -113,7 +254,7 @@ class ProductListScreen extends StatelessWidget {
                   Expanded(
                     child: _StatCard(
                       label: 'Total Produk',
-                      value: '${products.length}',
+                      value: '${allProducts.length}',
                       icon: Icons.inventory_2,
                       color: Colors.blue,
                     ),
@@ -150,7 +291,10 @@ class ProductListScreen extends StatelessWidget {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              final products = controller.filteredProducts;
+              // Apply search, filter, dan sort
+              var products = controller.filteredProducts;
+              products = getFilteredProducts(products);
+              products = getSortedProducts(products);
 
               if (products.isEmpty) {
                 return Center(
@@ -208,6 +352,86 @@ class ProductListScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  PopupMenuItem<ProductFilterType> _buildFilterItem(
+    ProductFilterType value,
+    String label,
+    IconData icon,
+    ProductFilterType current,
+  ) {
+    final isSelected = value == current;
+    return PopupMenuItem(
+      value: value,
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 20,
+            color: isSelected ? Colors.blue : Colors.grey,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ),
+          if (isSelected)
+            const Icon(Icons.check, size: 16, color: Colors.blue),
+        ],
+      ),
+    );
+  }
+
+  PopupMenuItem<ProductSortType> _buildSortItem(
+    ProductSortType value,
+    String label,
+    IconData icon,
+  ) {
+    return PopupMenuItem(
+      value: value,
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: Colors.grey),
+          const SizedBox(width: 12),
+          Text(label),
+        ],
+      ),
+    );
+  }
+
+  String _getFilterLabel(ProductFilterType filter) {
+    switch (filter) {
+      case ProductFilterType.lowStock:
+        return 'Stok Rendah';
+      case ProductFilterType.active:
+        return 'Aktif';
+      case ProductFilterType.inactive:
+        return 'Nonaktif';
+      case ProductFilterType.all:
+      default:
+        return 'Semua';
+    }
+  }
+
+  String _getSortLabel(ProductSortType sort) {
+    switch (sort) {
+      case ProductSortType.nameAsc:
+        return 'Nama A-Z';
+      case ProductSortType.nameDesc:
+        return 'Nama Z-A';
+      case ProductSortType.priceAsc:
+        return 'Harga Termurah';
+      case ProductSortType.priceDesc:
+        return 'Harga Termahal';
+      case ProductSortType.stockAsc:
+        return 'Stok Terendah';
+      case ProductSortType.stockDesc:
+        return 'Stok Tertinggi';
+    }
   }
 }
 
@@ -300,7 +524,7 @@ class _ProductCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  // Product Icon/Image placeholder
+                  // Product Icon
                   Container(
                     width: 50,
                     height: 50,
