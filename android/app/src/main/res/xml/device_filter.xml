@@ -1,0 +1,32 @@
+<!-- android/app/src/main/res/xml/device_filter.xml -->
+<!-- Buat folder xml jika belum ada -->
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common Thermal Printer USB Vendors -->
+    
+    <!-- Star Micronics -->
+    <usb-device vendor-id="1659" product-id="8965"/>
+    
+    <!-- Epson -->
+    <usb-device vendor-id="1208" product-id="514"/>
+    <usb-device vendor-id="1208" product-id="3586"/>
+    
+    <!-- Zjiang / Xprinter -->
+    <usb-device vendor-id="1046" product-id="20497"/>
+    
+    <!-- Generic POS Printers -->
+    <usb-device vendor-id="0483" product-id="5743"/>
+    
+    <!-- Sunmi (popular di Indonesia) -->
+    <usb-device vendor-id="6790" product-id="30084"/>
+    
+    <!-- iMin -->
+    <usb-device vendor-id="11914" product-id="257"/>
+    
+    <!-- Jika printer Anda tidak terdeteksi, cek vendor-id dan product-id dengan:
+         adb shell dumpsys usb
+         
+         Kemudian tambahkan di sini dengan format:
+         <usb-device vendor-id="XXXX" product-id="XXXX"/>
+    -->
+</resources>

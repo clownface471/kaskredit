@@ -35,4 +35,5 @@ class AppRoutes {
   // Settings
   static const SETTINGS = '/settings';
   static const PRINTER_SETTINGS = '/settings/printer';
+  static const PRINTER_SELECTION = '/printer/selection'; 
 }

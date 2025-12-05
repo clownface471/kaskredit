@@ -422,80 +422,83 @@ class TransactionDetailScreen extends StatelessWidget {
   }
 
   // Fungsi Print
-  void _printReceipt(tx.Transaction transaction) async {
-    final printerController = Get.put(EnhancedPrinterControllerV2());
-    final settingsController = Get.put(SettingsController());
-    
-    if (printerController.printerIp.value == null) {
-      Get.snackbar(
-        'Info',
-        'Silakan atur printer terlebih dahulu',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-      return;
-    }
+void _printReceipt(tx.Transaction transaction) async {
+  final printerController = Get.put(EnhancedPrinterControllerV2());
+  final settingsController = Get.put(SettingsController());
+  
+  if (printerController.printerIp.value == null) {
+    Get.snackbar(
+      'Info',
+      'Silakan atur printer terlebih dahulu',
+      snackPosition: SnackPosition.BOTTOM,
+    );
+    return;
+  }
 
-    Get.dialog(
-      const Center(
-        child: Card(
-          child: Padding(
-            padding: EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text("Mencetak struk..."),
-              ],
-            ),
+  Get.dialog(
+    const Center(
+      child: Card(
+        child: Padding(
+          padding: EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text("Mencetak struk..."),
+            ],
           ),
         ),
       ),
-      barrierDismissible: false,
+    ),
+    barrierDismissible: false,
+  );
+
+  try {
+    final printerService = EnhancedPrinterServiceV2();
+    
+    // Ambil nama toko dari settings
+    String shopName = settingsController.shopName.value;
+    if (shopName.isEmpty) shopName = "Toko Saya";
+
+    // PERBAIKAN: result adalah PrintResult, bukan bool
+    final result = await printerService.printReceipt(
+      printerIp: printerController.printerIp.value!,
+      transaction: transaction,
+      shopName: shopName,
+      shopAddress: settingsController.shopAddress.value,
+      shopPhone: settingsController.shopPhone.value,
+      footerNote: printerController.footerNote.value,
     );
 
-    try {
-      final printerService = EnhancedPrinterServiceV2();
-      
-      // Ambil nama toko dari settings
-      String shopName = settingsController.shopName.value;
-      if (shopName.isEmpty) shopName = "Toko Saya";
+    Get.back(); // Tutup loading
 
-      final success = await printerService.printReceipt(
-        printerIp: printerController.printerIp.value!,
-        transaction: transaction,
-        shopName: shopName,
-        shopAddress: settingsController.shopAddress.value,
-        shopPhone: settingsController.shopPhone.value,
-        footerNote: printerController.footerNote.value,
-      );
-
-      Get.back(); // Tutup loading
-
-      if (success) {
-        Get.snackbar(
-          'Berhasil',
-          'Struk berhasil dicetak',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.green.withOpacity(0.1),
-        );
-      } else {
-        Get.snackbar(
-          'Gagal',
-          'Gagal mencetak struk. Cek koneksi.',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.red.withOpacity(0.1),
-        );
-      }
-    } catch (e) {
-      Get.back();
+    // PERBAIKAN: Cek dengan enum
+    if (result == PrintResult.success) {
       Get.snackbar(
-        'Error',
-        'Terjadi kesalahan: $e',
+        'Berhasil',
+        'Struk berhasil dicetak',
         snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.green.withOpacity(0.1),
+      );
+    } else {
+      // PERBAIKAN: Gunakan getErrorMessage
+      Get.snackbar(
+        'Gagal',
+        printerService.getErrorMessage(result),
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.withOpacity(0.1),
       );
     }
+  } catch (e) {
+    Get.back();
+    Get.snackbar(
+      'Error',
+      'Terjadi kesalahan: $e',
+      snackPosition: SnackPosition.BOTTOM,
+    );
   }
+}
 
   void _shareTransaction(tx.Transaction transaction) {
     Get.snackbar(

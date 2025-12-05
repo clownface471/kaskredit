@@ -24,6 +24,7 @@ import 'package:kaskredit_1/features/payments/presentation/screens/debt_manageme
 import 'package:kaskredit_1/features/settings/presentation/screens/settings_screen.dart';
 import 'package:kaskredit_1/features/printer/presentation/screens/printer_settings_screen.dart';
 import 'package:kaskredit_1/features/reports/presentation/screens/report_screen.dart'; 
+import 'package:kaskredit_1/features/printer/presentation/screens/printer_selection_screen.dart';
 
 
 class AppPages {
@@ -66,5 +67,9 @@ class AppPages {
     GetPage(name: AppRoutes.PRINTER_SETTINGS, page: () => const EnhancedPrinterSettingsScreen()),
     // Reports
     GetPage(name: AppRoutes.REPORTS, page: () => const ReportScreen()), 
+    GetPage(
+  name: AppRoutes.PRINTER_SELECTION,
+  page: () => const PrinterSelectionScreen(),
+),
   ];
 }

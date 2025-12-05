@@ -137,11 +137,11 @@ class SettingsScreen extends StatelessWidget {
 
             // Printer Settings
             _buildMenuItem(
-              icon: Icons.print,
-              title: "Pengaturan Printer",
-              subtitle: "Atur printer thermal untuk cetak struk",
-              onTap: () => Get.toNamed(AppRoutes.PRINTER_SETTINGS),
-            ),
+  icon: Icons.print,
+  title: "Pengaturan Printer",
+  subtitle: "Atur printer WiFi, Bluetooth, atau USB",
+  onTap: () => Get.toNamed(AppRoutes.PRINTER_SELECTION),
+),
             const SizedBox(height: 8),
 
             // Data Management

@@ -33,6 +33,11 @@ dependencies:
 
   url_launcher: ^6.2.5
 
+  blue_thermal_printer: ^1.2.3  # Bluetooth
+  usb_serial: ^0.5.0            # USB
+  permission_handler: ^11.0.1   # Permissions
+  flutter_libserialport: ^0.3.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

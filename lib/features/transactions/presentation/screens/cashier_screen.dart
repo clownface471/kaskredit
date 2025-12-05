@@ -21,11 +21,13 @@ class CashierScreen extends StatefulWidget {
 
 class _CashierScreenState extends State<CashierScreen> {
   final _searchController = TextEditingController();
-  
+
   final CartController cartController = Get.put(CartController());
   final ProductController productController = Get.put(ProductController());
   final CustomerController customerController = Get.put(CustomerController());
-  final EnhancedPrinterControllerV2 printerController = Get.put(EnhancedPrinterControllerV2());
+  final EnhancedPrinterControllerV2 printerController = Get.put(
+    EnhancedPrinterControllerV2(),
+  );
   final SettingsController settingsController = Get.put(SettingsController());
 
   @override
@@ -49,7 +51,7 @@ class _CashierScreenState extends State<CashierScreen> {
           IconButton(
             icon: const Icon(Icons.delete_sweep),
             onPressed: () => _confirmClearCart(),
-          )
+          ),
         ],
       ),
       body: Column(
@@ -84,7 +86,7 @@ class _CashierScreenState extends State<CashierScreen> {
 
   Widget _buildSearchResults() {
     final products = productController.filteredProducts;
-    
+
     if (productController.isLoading.value) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -114,7 +116,7 @@ class _CashierScreenState extends State<CashierScreen> {
 
     if (items.isEmpty) {
       return const Center(
-        child: Text("Keranjang kosong. Cari produk untuk ditambahkan.")
+        child: Text("Keranjang kosong. Cari produk untuk ditambahkan."),
       );
     }
 
@@ -126,7 +128,7 @@ class _CashierScreenState extends State<CashierScreen> {
         return ListTile(
           title: Text(item.product.name),
           subtitle: Text(
-            "${Formatters.currency.format(item.product.sellingPrice)} x ${item.quantity}"
+            "${Formatters.currency.format(item.product.sellingPrice)} x ${item.quantity}",
           ),
           trailing: Text(
             Formatters.currency.format(item.subtotal),
@@ -145,10 +147,11 @@ class _CashierScreenState extends State<CashierScreen> {
       child: Obx(() {
         final total = cartController.totalAmount;
         final type = cartController.paymentType;
-        
+
         return Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Column( // Mengubah ListView menjadi Column untuk mencegah overflow
+          child: Column(
+            // Mengubah ListView menjadi Column untuk mencegah overflow
             mainAxisSize: MainAxisSize.min, // Penting agar tidak memenuhi layar
             children: [
               Row(
@@ -156,14 +159,14 @@ class _CashierScreenState extends State<CashierScreen> {
                 children: [
                   const Text(
                     "TOTAL",
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   Text(
                     Formatters.currency.format(total),
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: Colors.blue
+                      color: Colors.blue,
                     ),
                   ),
                 ],
@@ -177,13 +180,15 @@ class _CashierScreenState extends State<CashierScreen> {
                   ChoiceChip(
                     label: const Text("Tunai"),
                     selected: type == PaymentType.CASH,
-                    onSelected: (_) => cartController.setPaymentType(PaymentType.CASH),
+                    onSelected: (_) =>
+                        cartController.setPaymentType(PaymentType.CASH),
                   ),
                   const SizedBox(width: 8),
                   ChoiceChip(
                     label: const Text("Kredit"),
                     selected: type == PaymentType.CREDIT,
-                    onSelected: (_) => cartController.setPaymentType(PaymentType.CREDIT),
+                    onSelected: (_) =>
+                        cartController.setPaymentType(PaymentType.CREDIT),
                   ),
                 ],
               ),
@@ -197,38 +202,44 @@ class _CashierScreenState extends State<CashierScreen> {
                     Expanded(
                       child: _buildNumberInput(
                         "DP (Rp)",
-                        (val) => cartController.setDownPayment(val)
-                      )
+                        (val) => cartController.setDownPayment(val),
+                      ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: _buildNumberInput(
                         "Bunga (%)",
-                        (val) => cartController.setInterestRate(val)
-                      )
+                        (val) => cartController.setInterestRate(val),
+                      ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: _buildNumberInput(
                         "Tenor (Bln)",
-                        (val) => cartController.setTenor(val)
-                      )
+                        (val) => cartController.setTenor(val),
+                      ),
                     ),
                   ],
                 ),
                 const Divider(height: 24),
                 _InfoRow(
                   label: "Total + Bunga:",
-                  value: Formatters.currency.format(cartController.totalWithInterest)
+                  value: Formatters.currency.format(
+                    cartController.totalWithInterest,
+                  ),
                 ),
                 _InfoRow(
                   label: "Sisa Utang:",
-                  value: Formatters.currency.format(cartController.remainingDebt)
+                  value: Formatters.currency.format(
+                    cartController.remainingDebt,
+                  ),
                 ),
                 _InfoRow(
                   label: "Cicilan / Bulan:",
-                  value: Formatters.currency.format(cartController.monthlyInstallment),
-                  isBold: true
+                  value: Formatters.currency.format(
+                    cartController.monthlyInstallment,
+                  ),
+                  isBold: true,
                 ),
               ],
 
@@ -240,17 +251,14 @@ class _CashierScreenState extends State<CashierScreen> {
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     backgroundColor: Colors.green,
-                    foregroundColor: Colors.white
+                    foregroundColor: Colors.white,
                   ),
-                  onPressed: cartController.isLoading.value 
-                    ? null 
-                    : _processCheckout,
-                  child: cartController.isLoading.value 
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text(
-                        "CHECKOUT",
-                        style: TextStyle(fontSize: 18)
-                      ),
+                  onPressed: cartController.isLoading.value
+                      ? null
+                      : _processCheckout,
+                  child: cartController.isLoading.value
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text("CHECKOUT", style: TextStyle(fontSize: 18)),
                 ),
               ),
             ],
@@ -263,14 +271,14 @@ class _CashierScreenState extends State<CashierScreen> {
   Widget _buildCustomerDropdown() {
     return Obx(() {
       final customers = customerController.customers;
-      
+
       // FIX UTAMA: Mencari object yang sama persis dari list berdasarkan ID
       // Ini mencegah error "There should be exactly one item..."
       Customer? selectedValue;
       if (cartController.selectedCustomer != null) {
         try {
           selectedValue = customers.firstWhere(
-            (c) => c.id == cartController.selectedCustomer!.id
+            (c) => c.id == cartController.selectedCustomer!.id,
           );
         } catch (_) {
           // Jika customer terpilih tidak ada di list (misal baru di-load), set null
@@ -287,15 +295,14 @@ class _CashierScreenState extends State<CashierScreen> {
           border: OutlineInputBorder(),
           contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         ),
-        items: customers.map((c) => 
-          DropdownMenuItem(
-            value: c, 
-            child: Text(
-              c.name, 
-              overflow: TextOverflow.ellipsis,
-            ),
-          )
-        ).toList(),
+        items: customers
+            .map(
+              (c) => DropdownMenuItem(
+                value: c,
+                child: Text(c.name, overflow: TextOverflow.ellipsis),
+              ),
+            )
+            .toList(),
         onChanged: (val) => cartController.selectCustomer(val),
       );
     });
@@ -362,7 +369,7 @@ class _CashierScreenState extends State<CashierScreen> {
 
   Future<void> _processCheckout() async {
     final transaction = await cartController.checkout();
-    
+
     if (transaction != null) {
       _showSuccessDialog(transaction);
     }
@@ -377,7 +384,7 @@ class _CashierScreenState extends State<CashierScreen> {
         children: [
           Text(
             "No: ${transaction.transactionNumber}",
-            style: const TextStyle(fontWeight: FontWeight.bold)
+            style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Text("Total: ${Formatters.currency.format(transaction.totalAmount)}"),
@@ -385,16 +392,13 @@ class _CashierScreenState extends State<CashierScreen> {
             const SizedBox(height: 8),
             Text(
               "Sisa Utang: ${Formatters.currency.format(transaction.remainingDebt)}",
-              style: const TextStyle(color: Colors.red)
+              style: const TextStyle(color: Colors.red),
             ),
           ],
         ],
       ),
       actions: [
-        TextButton(
-          onPressed: () => Get.back(),
-          child: const Text("Tutup"),
-        ),
+        TextButton(onPressed: () => Get.back(), child: const Text("Tutup")),
         Obx(() {
           final hasPrinter = printerController.printerIp.value != null;
           return ElevatedButton.icon(
@@ -402,12 +406,12 @@ class _CashierScreenState extends State<CashierScreen> {
             label: Text(hasPrinter ? "Cetak Struk" : "Setup Printer"),
             onPressed: () async {
               Get.back();
-              
+
               if (!hasPrinter) {
                 Get.toNamed('/settings/printer');
                 return;
               }
-              
+
               await _printReceipt(transaction);
             },
           );
@@ -422,7 +426,7 @@ class _CashierScreenState extends State<CashierScreen> {
       Get.snackbar(
         "Error",
         "Printer belum dikonfigurasi",
-        snackPosition: SnackPosition.BOTTOM
+        snackPosition: SnackPosition.BOTTOM,
       );
       return;
     }
@@ -451,7 +455,8 @@ class _CashierScreenState extends State<CashierScreen> {
       String shopName = settingsController.shopName.value;
       if (shopName.isEmpty) shopName = "Toko Saya";
 
-      final success = await printerService.printReceipt(
+      // PERBAIKAN: result adalah PrintResult, bukan bool
+      final result = await printerService.printReceipt(
         printerIp: printerIp,
         transaction: transaction,
         shopName: shopName,
@@ -462,7 +467,8 @@ class _CashierScreenState extends State<CashierScreen> {
 
       Get.back();
 
-      if (success) {
+      // PERBAIKAN: Cek dengan enum
+      if (result == PrintResult.success) {
         Get.snackbar(
           "Berhasil",
           "Struk berhasil dicetak",
@@ -471,9 +477,10 @@ class _CashierScreenState extends State<CashierScreen> {
           icon: const Icon(Icons.check_circle, color: Colors.green),
         );
       } else {
+        // PERBAIKAN: Gunakan getErrorMessage
         Get.snackbar(
           "Gagal",
-          "Gagal mencetak struk. Periksa koneksi printer.",
+          printerService.getErrorMessage(result),
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.red.withOpacity(0.1),
         );
@@ -494,11 +501,11 @@ class _InfoRow extends StatelessWidget {
   final String label;
   final String value;
   final bool isBold;
-  
+
   const _InfoRow({
     required this.label,
     required this.value,
-    this.isBold = false
+    this.isBold = false,
   });
 
   @override
