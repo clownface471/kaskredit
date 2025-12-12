@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:kaskredit_1/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:kaskredit_1/core/navigation/app_routes.dart';
+import 'package:kaskredit_1/core/utils/validators.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -49,7 +50,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Logo
                   Icon(
                     Icons.store,
                     size: 80,
@@ -57,7 +57,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 16),
                   
-                  // Title
                   Text(
                     'KasKredit',
                     textAlign: TextAlign.center,
@@ -79,7 +78,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 48),
                   
-                  // Email field
+                  // Email field dengan validator
                   TextFormField(
                     controller: _emailController,
                     decoration: const InputDecoration(
@@ -88,15 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       prefixIcon: Icon(Icons.email),
                     ),
                     keyboardType: TextInputType.emailAddress,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Email tidak boleh kosong';
-                      }
-                      if (!value.contains('@')) {
-                        return 'Email tidak valid';
-                      }
-                      return null;
-                    },
+                    validator: Validators.email, // IMPROVED VALIDATION
                   ),
                   const SizedBox(height: 16),
                   
@@ -121,19 +112,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     obscureText: _obscurePassword,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Password tidak boleh kosong';
-                      }
-                      if (value.length < 6) {
-                        return 'Password minimal 6 karakter';
-                      }
-                      return null;
-                    },
+                    validator: Validators.password, // IMPROVED VALIDATION
                   ),
                   const SizedBox(height: 24),
                   
-                  // Login button
                   Obx(() {
                     return ElevatedButton(
                       onPressed: authController.isLoading.value ? null : _login,
@@ -156,7 +138,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   }),
                   const SizedBox(height: 16),
                   
-                  // Register link
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [

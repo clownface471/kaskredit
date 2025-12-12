@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
 import 'package:kaskredit_1/shared/models/payment.dart';
 import 'package:kaskredit_1/shared/models/transaction.dart';
+import 'package:kaskredit_1/shared/utils/formatters.dart';
 
 class PaymentRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -13,7 +14,7 @@ class PaymentRepository {
       _transactionsRef = FirebaseFirestore.instance.collection('transactions'),
       _customersRef = FirebaseFirestore.instance.collection('customers');
 
-  // === CREATE PAYMENT ===
+  /// Process Payment dengan Validasi Lengkap
   Future<void> processPayment({
     required String transactionId,
     required String customerId,
@@ -23,43 +24,53 @@ class PaymentRepository {
     required String customerName,
     String? notes,
   }) async {
+    // === VALIDASI INPUT ===
+    if (paymentAmount <= 0) {
+      throw Exception("Jumlah pembayaran harus lebih dari 0");
+    }
+
     final transactionDocRef = _transactionsRef.doc(transactionId);
     final customerDocRef = _customersRef.doc(customerId);
-    final paymentDocRef = _paymentsRef.doc(); 
+    final paymentDocRef = _paymentsRef.doc();
 
     final batch = _firestore.batch();
 
     try {
+      // === GET TRANSACTION ===
       final transactionSnap = await transactionDocRef.get();
       if (!transactionSnap.exists) {
         throw Exception("Transaksi tidak ditemukan!");
       }
       final transaction = Transaction.fromFirestore(transactionSnap);
 
-      if (paymentAmount <= 0) {
-        throw Exception("Jumlah bayar tidak boleh nol.");
-      }
+      // === VALIDASI PEMBAYARAN ===
+      // Toleransi 0.01 untuk mengatasi floating point precision
+      const tolerance = 0.01;
       
-      // PERBAIKAN 1: Naikkan toleransi menjadi 1.0 (atau lebih)
-      // Ini untuk mengakomodasi pembulatan tampilan (contoh: 0.7 dibulatkan jadi 1 di UI)
-      if (paymentAmount > transaction.remainingDebt + 1.0) {
-        throw Exception("Jumlah bayar melebihi sisa utang.");
+      if (paymentAmount > transaction.remainingDebt + tolerance) {
+        throw Exception(
+          "Jumlah bayar ${Formatters.currency(paymentAmount)} "
+          "melebihi sisa utang ${Formatters.currency(transaction.remainingDebt)}"
+        );
       }
 
-      // PERBAIKAN 2: Pastikan sisa utang tidak minus (Clamp to 0)
-      // Jika bayar 101 untuk utang 100.5, sisa utang jadi 0 (bukan -0.5)
-      double newRemainingDebt = transaction.remainingDebt - paymentAmount;
-      if (newRemainingDebt < 0) {
-        newRemainingDebt = 0;
+      // === HITUNG SISA UTANG ===
+      // Pastikan tidak pernah negatif (clamp ke 0)
+      double newRemainingDebt = (transaction.remainingDebt - paymentAmount).clamp(0.0, double.infinity);
+      
+      // Jika sisa < 1 rupiah, anggap lunas
+      if (newRemainingDebt < 1.0) {
+        newRemainingDebt = 0.0;
       }
 
       final newPaidAmount = transaction.paidAmount + paymentAmount;
       
-      // PERBAIKAN 3: Cek status lunas
-      final newStatus = (newRemainingDebt <= 0) // Gunakan <= 0 biar aman
+      // Tentukan status baru
+      final newStatus = (newRemainingDebt <= 0) 
           ? PaymentStatus.PAID
           : PaymentStatus.PARTIAL;
 
+      // === CREATE PAYMENT RECORD ===
       final newPayment = Payment(
         id: paymentDocRef.id,
         userId: userId,
@@ -76,6 +87,7 @@ class PaymentRepository {
         createdAt: DateTime.now(),
       );
 
+      // === BATCH OPERATIONS ===
       // 1. Simpan Payment
       batch.set(paymentDocRef, newPayment.toJson());
 
@@ -93,8 +105,11 @@ class PaymentRepository {
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
+      // COMMIT
       await batch.commit();
+      
     } catch (e) {
+      print('Payment processing error: $e');
       throw Exception("Gagal memproses pembayaran: $e");
     }
   }

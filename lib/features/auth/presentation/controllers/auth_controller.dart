@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:kaskredit_1/core/navigation/app_routes.dart';
@@ -5,23 +6,18 @@ import 'package:kaskredit_1/core/navigation/app_routes.dart';
 class AuthController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   
-  // Reactive state
   final Rx<User?> firebaseUser = Rx<User?>(null);
   final RxBool isLoading = true.obs;
 
   @override
   void onInit() {
     super.onInit();
-    // Listen to auth state changes
     firebaseUser.bindStream(_auth.authStateChanges());
-    
-    // Navigate based on auth state
     ever(firebaseUser, _setInitialScreen);
   }
 
   void _setInitialScreen(User? user) {
     if (isLoading.value) {
-      // First time check - wait a bit for Firebase to initialize
       Future.delayed(const Duration(seconds: 1), () {
         isLoading.value = false;
         if (user == null) {
@@ -31,7 +27,6 @@ class AuthController extends GetxController {
         }
       });
     } else {
-      // Subsequent auth changes
       if (user == null) {
         Get.offAllNamed(AppRoutes.LOGIN);
       } else {
@@ -40,27 +35,35 @@ class AuthController extends GetxController {
     }
   }
 
-  // Check if user is logged in
   bool get isLoggedIn => firebaseUser.value != null;
-
-  // Get current user
   User? get currentUser => firebaseUser.value;
-
-  // Get current user ID
   String? get currentUserId => firebaseUser.value?.uid;
 
-  // Sign in with email and password
+  /// Sign In dengan Timeout & Error Handling Lengkap
   Future<void> signInWithEmailAndPassword({
     required String email,
     required String password,
   }) async {
     try {
       isLoading.value = true;
+      
       await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
+      ).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () {
+          throw TimeoutException('Koneksi timeout');
+        },
       );
-      // Navigation akan otomatis dilakukan oleh _setInitialScreen
+      
+    } on TimeoutException {
+      Get.snackbar(
+        'Timeout',
+        'Koneksi ke server gagal. Periksa internet Anda.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Get.theme.colorScheme.error.withOpacity(0.1),
+      );
     } on FirebaseAuthException catch (e) {
       String message = 'Terjadi kesalahan';
       
@@ -77,6 +80,12 @@ class AuthController extends GetxController {
         case 'user-disabled':
           message = 'Akun dinonaktifkan';
           break;
+        case 'too-many-requests':
+          message = 'Terlalu banyak percobaan. Coba lagi nanti.';
+          break;
+        case 'network-request-failed':
+          message = 'Tidak ada koneksi internet';
+          break;
         default:
           message = e.message ?? 'Terjadi kesalahan';
       }
@@ -85,7 +94,7 @@ class AuthController extends GetxController {
         'Login Gagal',
         message,
         snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Get.theme.colorScheme.error.withAlpha(25),
+        backgroundColor: Get.theme.colorScheme.error.withOpacity(0.1),
       );
     } catch (e) {
       Get.snackbar(
@@ -98,7 +107,7 @@ class AuthController extends GetxController {
     }
   }
 
-  // Register with email and password
+  /// Register dengan Timeout & Error Handling
   Future<void> registerWithEmailAndPassword({
     required String email,
     required String password,
@@ -106,22 +115,33 @@ class AuthController extends GetxController {
   }) async {
     try {
       isLoading.value = true;
+      
       final credential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
+      ).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () {
+          throw TimeoutException('Koneksi timeout');
+        },
       );
       
-      // Update display name
       await credential.user?.updateDisplayName(name);
       
       Get.snackbar(
         'Berhasil',
         'Akun berhasil dibuat',
         snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Get.theme.colorScheme.primary.withAlpha(25),
+        backgroundColor: Get.theme.colorScheme.primary.withOpacity(0.1),
       );
       
-      // Navigation akan otomatis dilakukan oleh _setInitialScreen
+    } on TimeoutException {
+      Get.snackbar(
+        'Timeout',
+        'Koneksi ke server gagal. Periksa internet Anda.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Get.theme.colorScheme.error.withOpacity(0.1),
+      );
     } on FirebaseAuthException catch (e) {
       String message = 'Terjadi kesalahan';
       
@@ -135,6 +155,9 @@ class AuthController extends GetxController {
         case 'weak-password':
           message = 'Password terlalu lemah';
           break;
+        case 'network-request-failed':
+          message = 'Tidak ada koneksi internet';
+          break;
         default:
           message = e.message ?? 'Terjadi kesalahan';
       }
@@ -143,7 +166,7 @@ class AuthController extends GetxController {
         'Registrasi Gagal',
         message,
         snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Get.theme.colorScheme.error.withAlpha(25),
+        backgroundColor: Get.theme.colorScheme.error.withOpacity(0.1),
       );
     } catch (e) {
       Get.snackbar(
@@ -156,11 +179,9 @@ class AuthController extends GetxController {
     }
   }
 
-  // Sign out
   Future<void> signOut() async {
     try {
       await _auth.signOut();
-      // Navigation akan otomatis dilakukan oleh _setInitialScreen
     } catch (e) {
       Get.snackbar(
         'Error',
@@ -170,15 +191,26 @@ class AuthController extends GetxController {
     }
   }
 
-  // Reset password
   Future<void> resetPassword(String email) async {
     try {
-      await _auth.sendPasswordResetEmail(email: email);
+      await _auth.sendPasswordResetEmail(email: email).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () {
+          throw TimeoutException('Koneksi timeout');
+        },
+      );
+      
       Get.snackbar(
         'Berhasil',
         'Email reset password telah dikirim',
         snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Get.theme.colorScheme.primary.withAlpha(25),
+        backgroundColor: Get.theme.colorScheme.primary.withOpacity(0.1),
+      );
+    } on TimeoutException {
+      Get.snackbar(
+        'Timeout',
+        'Koneksi ke server gagal. Periksa internet Anda.',
+        snackPosition: SnackPosition.BOTTOM,
       );
     } on FirebaseAuthException catch (e) {
       String message = 'Terjadi kesalahan';
@@ -198,7 +230,7 @@ class AuthController extends GetxController {
         'Gagal',
         message,
         snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Get.theme.colorScheme.error.withAlpha(25),
+        backgroundColor: Get.theme.colorScheme.error.withOpacity(0.1),
       );
     } catch (e) {
       Get.snackbar(

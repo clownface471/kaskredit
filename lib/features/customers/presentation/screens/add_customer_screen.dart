@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:kaskredit_1/features/customers/presentation/controllers/customer_controller.dart';
 import 'package:kaskredit_1/shared/models/customer.dart';
+import 'package:kaskredit_1/core/utils/validators.dart';
 
 class AddCustomerScreen extends StatefulWidget {
   const AddCustomerScreen({super.key});
@@ -45,10 +46,10 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> {
 
     final customer = Customer(
       userId: userId,
-      name: _nameController.text,
-      phoneNumber: _phoneController.text,
-      address: _addressController.text,
-      notes: _notesController.text,
+      name: _nameController.text.trim(),
+      phoneNumber: _phoneController.text.trim(),
+      address: _addressController.text.trim(),
+      notes: _notesController.text.trim(),
       totalDebt: 0.0,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
@@ -92,9 +93,10 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> {
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.person),
               ),
-              validator: (value) => (value == null || value.isEmpty)
-                  ? "Nama tidak boleh kosong"
-                  : null,
+              validator: (value) => Validators.required(
+                value,
+                fieldName: "Nama",
+              ),
               textCapitalization: TextCapitalization.words,
             ),
             const SizedBox(height: 16),
@@ -105,8 +107,13 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> {
                 labelText: "Nomor HP",
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.phone),
+                hintText: "08xxxxxxxxxx",
               ),
               keyboardType: TextInputType.phone,
+              validator: (value) => Validators.phoneNumber(
+                value,
+                required: false,
+              ),
             ),
             const SizedBox(height: 16),
             

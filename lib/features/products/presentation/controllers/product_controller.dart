@@ -1,18 +1,19 @@
-import 'package:flutter/material.dart'; // TAMBAHKAN INI
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:kaskredit_1/shared/models/product.dart';
 import 'package:kaskredit_1/features/products/data/product_repository.dart';
+import 'dart:async';
 
 class ProductController extends GetxController {
   final ProductRepository _repository = ProductRepository();
   
-  // Reactive state
   final RxList<Product> products = <Product>[].obs;
   final RxBool isLoading = false.obs;
   final RxString searchQuery = ''.obs;
   
-  // Computed property untuk filtered products
+  StreamSubscription? _productSubscription;
+  
   List<Product> get filteredProducts {
     if (searchQuery.isEmpty) {
       return products;
@@ -29,26 +30,53 @@ class ProductController extends GetxController {
     loadProducts();
   }
 
+  @override
+  void onClose() {
+    _productSubscription?.cancel();
+    super.onClose();
+  }
+
   void loadProducts() {
     final userId = FirebaseAuth.instance.currentUser?.uid;
-    if (userId == null) return;
+    if (userId == null) {
+      products.clear();
+      isLoading.value = false;
+      return;
+    }
 
     isLoading.value = true;
     
-    _repository.getProducts(userId).listen(
+    _productSubscription?.cancel();
+    
+    _productSubscription = _repository.getProducts(userId).listen(
       (productList) {
         products.value = productList;
         isLoading.value = false;
       },
       onError: (error) {
         isLoading.value = false;
+        products.clear();
         Get.snackbar(
           'Error',
           'Gagal memuat produk: $error',
           snackPosition: SnackPosition.BOTTOM,
         );
       },
+      cancelOnError: false,
     );
+  }
+
+  // FIX: Return Future untuk RefreshIndicator
+  Future<void> refreshProducts() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    try {
+      final snapshot = await _repository.getProducts(userId).first;
+      products.value = snapshot;
+    } catch (e) {
+      Get.snackbar('Error', 'Gagal refresh produk: $e');
+    }
   }
 
   void updateSearchQuery(String query) {
@@ -102,7 +130,6 @@ class ProductController extends GetxController {
   }
 
   Future<void> deleteProduct(String productId) async {
-    // Show confirmation dialog
     final confirmed = await Get.dialog<bool>(
       AlertDialog(
         title: const Text('Konfirmasi Hapus'),

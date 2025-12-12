@@ -15,7 +15,6 @@ class TransactionRepository {
         _productsRef = FirebaseFirestore.instance.collection('products'),
         _customersRef = FirebaseFirestore.instance.collection('customers');
 
-  // --- CREATE TRANSACTION ---
   Future<Transaction> createTransaction(CartState cart, String userId) async {
     final transactionNumber = await _generateTransactionNumber(userId);
     final batch = _firestore.batch();
@@ -33,7 +32,7 @@ class TransactionRepository {
     }).toList();
 
     final newTransaction = Transaction(
-      id: transactionRef.id, // Set ID dokumen
+      id: transactionRef.id,
       userId: userId,
       transactionNumber: transactionNumber,
       customerId: cart.selectedCustomer?.id,
@@ -67,10 +66,8 @@ class TransactionRepository {
       updatedAt: DateTime.now(),
     );
 
-    // 1. Simpan Transaksi
     batch.set(transactionRef, newTransaction.toJson());
 
-    // 2. Update Stok Produk
     for (final item in cart.items) {
       final productRef = _productsRef.doc(item.product.id);
       batch.update(productRef, {
@@ -79,7 +76,6 @@ class TransactionRepository {
       });
     }
 
-    // 3. Update Utang Pelanggan (jika kredit)
     if (cart.paymentType == PaymentType.CREDIT && cart.selectedCustomer != null) {
       final customerRef = _customersRef.doc(cart.selectedCustomer!.id);
       batch.update(customerRef, {
@@ -89,33 +85,44 @@ class TransactionRepository {
     }
 
     await batch.commit();
-    return newTransaction; // Kembalikan objek transaksi untuk keperluan print
+    return newTransaction;
   }
 
-  // --- GENERATE NOMOR ---
+  /// Generate Transaction Number dengan Fallback
   Future<String> _generateTransactionNumber(String userId) async {
     final dateStr = DateFormat('yyyyMMdd').format(DateTime.now());
-    final query = await _transactionsRef
-        .where('userId', isEqualTo: userId)
-        .where('transactionNumber', isGreaterThanOrEqualTo: 'TRX-$dateStr-0000')
-        .where('transactionNumber', isLessThanOrEqualTo: 'TRX-$dateStr-9999')
-        .orderBy('transactionNumber', descending: true)
-        .limit(1)
-        .get();
-
-    if (query.docs.isEmpty) {
-      return 'TRX-$dateStr-0001';
-    }
     
-    final lastTxNum = query.docs.first.get('transactionNumber') as String;
-    final lastNumStr = lastTxNum.split('-').last;
+    try {
+      // Try with composite index
+      final query = await _transactionsRef
+          .where('userId', isEqualTo: userId)
+          .where('transactionNumber', isGreaterThanOrEqualTo: 'TRX-$dateStr-0000')
+          .where('transactionNumber', isLessThanOrEqualTo: 'TRX-$dateStr-9999')
+          .orderBy('transactionNumber', descending: true)
+          .limit(1)
+          .get();
 
-    final lastNum = int.tryParse(lastNumStr) ?? 0;
-    final newNum = (lastNum + 1).toString().padLeft(4, '0');
-    return 'TRX-$dateStr-$newNum';
+      if (query.docs.isEmpty) {
+        return 'TRX-$dateStr-0001';
+      }
+      
+      final lastTxNum = query.docs.first.get('transactionNumber') as String;
+      final lastNumStr = lastTxNum.split('-').last;
+      final lastNum = int.tryParse(lastNumStr) ?? 0;
+      final newNum = (lastNum + 1).toString().padLeft(4, '0');
+      
+      return 'TRX-$dateStr-$newNum';
+      
+    } catch (e) {
+      // FALLBACK: Jika composite index belum ada, gunakan timestamp
+      print('⚠️ WARNING: Composite index belum dibuat. Menggunakan fallback. Error: $e');
+      print('Buat index di: https://console.firebase.google.com/project/_/firestore/indexes');
+      
+      final timestamp = DateTime.now().millisecondsSinceEpoch % 10000;
+      return 'TRX-$dateStr-${timestamp.toString().padLeft(4, '0')}';
+    }
   }
 
-  // --- READ METHODS ---
   Stream<List<Transaction>> getTransactionsWithDebt(String customerId) {
     return _transactionsRef
         .where('customerId', isEqualTo: customerId)

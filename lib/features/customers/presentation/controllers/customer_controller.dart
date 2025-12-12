@@ -4,23 +4,23 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:kaskredit_1/shared/models/customer.dart';
 import 'package:kaskredit_1/features/customers/data/customer_repository.dart';
 import 'package:kaskredit_1/core/utils/getx_utils.dart';
+import 'dart:async';
 
 enum CustomerFilter { all, withDebt, noDebt }
 
 class CustomerController extends GetxController {
   final CustomerRepository _repository = CustomerRepository();
   
-  // Reactive state
   final RxList<Customer> customers = <Customer>[].obs;
   final RxBool isLoading = false.obs;
   final RxString searchQuery = ''.obs;
   final Rx<CustomerFilter> currentFilter = CustomerFilter.all.obs;
   
-  // Computed property untuk filtered customers
+  StreamSubscription? _customerSubscription; // Track subscription
+  
   List<Customer> get filteredCustomers {
     var result = customers.toList();
     
-    // Apply filter
     switch (currentFilter.value) {
       case CustomerFilter.withDebt:
         result = result.where((c) => c.totalDebt > 0).toList();
@@ -33,7 +33,6 @@ class CustomerController extends GetxController {
         break;
     }
     
-    // Apply search
     if (searchQuery.isNotEmpty) {
       result = result.where((customer) => 
           customer.name.toLowerCase().contains(searchQuery.toLowerCase()) ||
@@ -44,7 +43,6 @@ class CustomerController extends GetxController {
     return result;
   }
 
-  // Stats
   int get totalCustomers => customers.length;
   int get debtorsCount => customers.where((c) => c.totalDebt > 0).length;
   double get totalDebt => customers.fold(0.0, (sum, c) => sum + c.totalDebt);
@@ -55,21 +53,36 @@ class CustomerController extends GetxController {
     loadCustomers();
   }
 
+  @override
+  void onClose() {
+    _customerSubscription?.cancel(); // Clean up subscription
+    super.onClose();
+  }
+
   void loadCustomers() {
     final userId = FirebaseAuth.instance.currentUser?.uid;
-    if (userId == null) return;
+    if (userId == null) {
+      customers.clear();
+      isLoading.value = false;
+      return;
+    }
 
     isLoading.value = true;
     
-    _repository.getCustomers(userId).listen(
+    // Cancel previous subscription if exists
+    _customerSubscription?.cancel();
+    
+    _customerSubscription = _repository.getCustomers(userId).listen(
       (customerList) {
         customers.value = customerList;
         isLoading.value = false;
       },
       onError: (error) {
         isLoading.value = false;
+        customers.clear();
         GetXUtils.showError('Gagal memuat pelanggan: $error');
       },
+      cancelOnError: false, // Continue listening even after error
     );
   }
 
@@ -114,7 +127,6 @@ class CustomerController extends GetxController {
   }
 
   Future<void> deleteCustomer(Customer customer) async {
-    // Cek apakah customer masih punya utang
     if (customer.totalDebt > 0) {
       GetXUtils.showWarning(
         'Tidak dapat menghapus pelanggan yang masih memiliki utang',
@@ -123,7 +135,6 @@ class CustomerController extends GetxController {
       return;
     }
 
-    // Show confirmation dialog
     final confirmed = await GetXUtils.showConfirmDialog(
       title: 'Konfirmasi Hapus',
       message: 'Yakin ingin menghapus pelanggan "${customer.name}"?',
