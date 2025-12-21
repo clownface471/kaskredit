@@ -1,11 +1,14 @@
+// lib/features/transactions/presentation/screens/transaction_detail_screen.dart
+// FIXED VERSION - Update import dan print function
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:kaskredit_1/shared/models/transaction.dart' as tx;
 import 'package:kaskredit_1/shared/models/customer.dart';
 import 'package:kaskredit_1/shared/utils/formatters.dart';
-import 'package:kaskredit_1/features/printer/presentation/controllers/printer_controller.dart';
-import 'package:kaskredit_1/features/printer/data/printer_service.dart';
+// GANTI IMPORT INI:
+import 'package:kaskredit_1/features/printer/presentation/controllers/bluetooth_printer_controller.dart';
 import 'package:kaskredit_1/features/settings/presentation/screens/settings_screen.dart';
 import 'package:kaskredit_1/core/navigation/app_routes.dart';
 import 'package:intl/intl.dart';
@@ -70,7 +73,6 @@ class TransactionDetailScreen extends StatelessWidget {
       floatingActionButton: transaction.paymentStatus != tx.PaymentStatus.PAID
           ? FloatingActionButton.extended(
               onPressed: () {
-                // Navigasi ke halaman bayar utang
                 Get.toNamed(AppRoutes.DEBT); 
               },
               icon: const Icon(Icons.payment),
@@ -92,14 +94,14 @@ class TransactionDetailScreen extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [statusColor, statusColor.withOpacity(0.7)],
+          colors: [statusColor, statusColor.withValues(alpha: 0.7)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: statusColor.withOpacity(0.3),
+            color: statusColor.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -165,7 +167,6 @@ class TransactionDetailScreen extends StatelessWidget {
               : 'Transaksi Tunai',
         ),
         trailing: const Icon(Icons.chevron_right),
-        // Navigasi ke Detail Customer
         onTap: () async {
           if (transaction.customerId != null) {
             Get.dialog(const Center(child: CircularProgressIndicator()), barrierDismissible: false);
@@ -175,17 +176,17 @@ class TransactionDetailScreen extends StatelessWidget {
                   .doc(transaction.customerId)
                   .get();
               
-              Get.back(); // Tutup loading
+              Get.back();
               
               if (doc.exists) {
                 final customer = Customer.fromFirestore(doc);
                 Get.toNamed(AppRoutes.CUSTOMER_DETAIL, arguments: customer);
               } else {
-                Get.snackbar('Error', 'Data pelanggan tidak ditemukan (mungkin sudah dihapus)');
+                Get.snackbar('Error', 'Data pelanggan tidak ditemukan');
               }
             } catch (e) {
               Get.back();
-              Get.snackbar('Error', 'Gagal memuat data pelanggan: $e');
+              Get.snackbar('Error', 'Gagal memuat data: $e');
             }
           }
         },
@@ -421,84 +422,45 @@ class TransactionDetailScreen extends StatelessWidget {
     );
   }
 
-  // Fungsi Print
-void _printReceipt(tx.Transaction transaction) async {
-  final printerController = Get.put(EnhancedPrinterControllerV2());
-  final settingsController = Get.put(SettingsController());
-  
-  if (printerController.printerIp.value == null) {
-    Get.snackbar(
-      'Info',
-      'Silakan atur printer terlebih dahulu',
-      snackPosition: SnackPosition.BOTTOM,
-    );
-    return;
-  }
-
-  Get.dialog(
-    const Center(
-      child: Card(
-        child: Padding(
-          padding: EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text("Mencetak struk..."),
-            ],
-          ),
-        ),
-      ),
-    ),
-    barrierDismissible: false,
-  );
-
-  try {
-    final printerService = EnhancedPrinterServiceV2();
+  // FIXED PRINT FUNCTION:
+  void _printReceipt(tx.Transaction transaction) async {
+    final btPrinterController = Get.put(BluetoothPrinterController());
+    final settingsController = Get.put(SettingsController());
     
-    // Ambil nama toko dari settings
+    if (!btPrinterController.isConnected.value) {
+      final result = await Get.dialog<bool>(
+        AlertDialog(
+          title: const Text('Printer Belum Terhubung'),
+          content: const Text('Apakah Anda ingin menghubungkan printer sekarang?'),
+          actions: [
+            TextButton(
+              onPressed: () => Get.back(result: false),
+              child: const Text('Nanti'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Get.back(result: true);
+                Get.toNamed(AppRoutes.BLUETOOTH_PRINTER);
+              },
+              child: const Text('Hubungkan'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     String shopName = settingsController.shopName.value;
     if (shopName.isEmpty) shopName = "Toko Saya";
 
-    // PERBAIKAN: result adalah PrintResult, bukan bool
-    final result = await printerService.printReceipt(
-      printerIp: printerController.printerIp.value!,
+    // Langsung panggil printReceipt dari controller
+    await btPrinterController.printReceipt(
       transaction: transaction,
       shopName: shopName,
       shopAddress: settingsController.shopAddress.value,
       shopPhone: settingsController.shopPhone.value,
-      footerNote: printerController.footerNote.value,
-    );
-
-    Get.back(); // Tutup loading
-
-    // PERBAIKAN: Cek dengan enum
-    if (result == PrintResult.success) {
-      Get.snackbar(
-        'Berhasil',
-        'Struk berhasil dicetak',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.green.withOpacity(0.1),
-      );
-    } else {
-      // PERBAIKAN: Gunakan getErrorMessage
-      Get.snackbar(
-        'Gagal',
-        printerService.getErrorMessage(result),
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red.withOpacity(0.1),
-      );
-    }
-  } catch (e) {
-    Get.back();
-    Get.snackbar(
-      'Error',
-      'Terjadi kesalahan: $e',
-      snackPosition: SnackPosition.BOTTOM,
     );
   }
-}
 
   void _shareTransaction(tx.Transaction transaction) {
     Get.snackbar(
@@ -629,9 +591,9 @@ class _PaymentMethodChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: data.$1.withOpacity(0.1),
+        color: data.$1.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: data.$1.withOpacity(0.3)),
+        border: Border.all(color: data.$1.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

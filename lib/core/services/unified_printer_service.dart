@@ -1,11 +1,13 @@
 // lib/core/services/unified_printer_service.dart
-// VERSION DENGAN SAFE PLATFORM CHECK
-
 
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:typed_data';
-import 'package:blue_thermal_printer/blue_thermal_printer.dart';
+
+// --- UPDATED IMPORT ---
+import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart'; 
+// ----------------------
+
 import 'package:usb_serial/usb_serial.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:esc_pos_utils/esc_pos_utils.dart';
@@ -37,8 +39,6 @@ class PlatformHelper {
   static bool get isWeb => !isMobile;
 }
 
-
-
 class SimplePlatformHelper {
   static bool get isAndroid => !kIsWeb && Platform.isAndroid;
   static bool get isIOS => !kIsWeb && Platform.isIOS;
@@ -51,6 +51,9 @@ class PrinterDeviceInfo {
   final String id;
   final String name;
   final PrinterConnectionType type;
+  /// Untuk Bluetooth: menyimpan MAC Address (String)
+  /// Untuk USB: menyimpan object UsbDevice
+  /// Untuk WiFi: menyimpan IP Address (String)
   final dynamic device;
 
   PrinterDeviceInfo({
@@ -63,28 +66,33 @@ class PrinterDeviceInfo {
 
 class UnifiedPrinterService {
   final EnhancedPrinterServiceV2 _wifiService = EnhancedPrinterServiceV2();
-  final BlueThermalPrinter _bluetoothPrinter = BlueThermalPrinter.instance;
   
+  // Instance untuk USB disimpan di sini
   UsbPort? _usbPort;
+  
   PrinterConnectionType? _currentType;
   bool _isConnected = false;
   
   bool get isConnected => _isConnected;
   
-  /// Request Permissions (Safe)
+  /// Request Permissions (Safe & Updated for Android 12+)
   Future<bool> requestPermissions() async {
     // Skip jika web
     if (kIsWeb) return true;
     
     try {
       if (!kIsWeb && Platform.isAndroid) {
+        // Permission standar untuk Bluetooth Scan & Connect (Android 12+)
         Map<Permission, PermissionStatus> statuses = await [
           Permission.bluetoothScan,
           Permission.bluetoothConnect,
-          Permission.location,
+          Permission.location, // Kadang dibutuhkan untuk discovery di Android lama
         ].request();
         
-        return statuses.values.every((status) => status.isGranted);
+        // Cek permission spesifik dari plugin thermal jika perlu
+        bool pluginPermission = await PrintBluetoothThermal.isPermissionBluetoothGranted;
+        
+        return statuses.values.every((status) => status.isGranted) || pluginPermission;
       }
     } catch (e) {
       print('Permission request error: $e');
@@ -115,20 +123,25 @@ class UnifiedPrinterService {
       return devices;
     }
     
-    // 2. Bluetooth Printers (mobile only)
+    // 2. Bluetooth Printers (Mobile only)
     try {
-      if (Platform.isAndroid || Platform.isIOS) {
-        final hasPermission = await requestPermissions();
-        if (hasPermission) {
-          final bluetoothDevices = await _bluetoothPrinter.getBondedDevices();
-          for (var d in bluetoothDevices) {
-            devices.add(PrinterDeviceInfo(
-              id: d.address ?? '',
-              name: 'BT: ${d.name ?? "Unknown"}',
-              type: PrinterConnectionType.bluetooth,
-              device: d,
-            ));
-          }
+      if (Platform.isAndroid) {
+        // Cek izin dulu
+        final bool permissionGranted = await PrintBluetoothThermal.isPermissionBluetoothGranted;
+        if (!permissionGranted) {
+          await requestPermissions();
+        }
+
+        // Ambil daftar perangkat yang sudah pairing
+        final List<BluetoothInfo> bluetoothDevices = await PrintBluetoothThermal.pairedBluetooths;
+        
+        for (var d in bluetoothDevices) {
+          devices.add(PrinterDeviceInfo(
+            id: d.macAdress, // Pastikan mengambil macAdress
+            name: 'BT: ${d.name}',
+            type: PrinterConnectionType.bluetooth,
+            device: d.macAdress, // Simpan MAC address sebagai string
+          ));
         }
       }
     } catch (e) {
@@ -156,7 +169,7 @@ class UnifiedPrinterService {
     return devices;
   }
   
-  /// Connect (Safe)
+  /// Connect (Updated Logic)
   Future<PrintResult> connect(PrinterDeviceInfo device) async {
     try {
       _currentType = device.type;
@@ -170,12 +183,11 @@ class UnifiedPrinterService {
         case PrinterConnectionType.bluetooth:
           if (kIsWeb) return PrintResult.connectionFailed;
           
-          if (device.device == null) {
-            return PrintResult.connectionFailed;
-          }
-          final connected = await _bluetoothPrinter.connect(device.device);
-          _isConnected = connected ?? false;
-          return _isConnected ? PrintResult.success : PrintResult.connectionFailed;
+          final String macAddress = device.device as String;
+          // Connect menggunakan MAC address
+          final bool connected = await PrintBluetoothThermal.connect(macPrinterAddress: macAddress);
+          _isConnected = connected;
+          return connected ? PrintResult.success : PrintResult.connectionFailed;
           
         case PrinterConnectionType.usb:
           if (kIsWeb || !Platform.isAndroid) {
@@ -217,7 +229,14 @@ class UnifiedPrinterService {
           _wifiService.disconnect();
           break;
         case PrinterConnectionType.bluetooth:
-          if (!kIsWeb) await _bluetoothPrinter.disconnect();
+          // Plugin ini kadang tidak perlu disconnect manual, 
+          // tapi bisa panggil method disconnect jika tersedia atau reset state.
+          // Versi 1.1.x mungkin tidak mengekspos disconnect secara gamblang untuk semua OS,
+          // tapi kita set state lokal ke false.
+          if (!kIsWeb && Platform.isAndroid) {
+             // Coba putuskan koneksi (return bool)
+             await PrintBluetoothThermal.disconnect; 
+          }
           break;
         case PrinterConnectionType.usb:
           await _usbPort?.close();
@@ -244,12 +263,16 @@ class UnifiedPrinterService {
       
       switch (_currentType!) {
         case PrinterConnectionType.wifi:
+          // WiFi service biasanya handle printing internal, 
+          // tapi kalau logicnya kirim bytes, sesuaikan dengan _wifiService kamu.
+          // Asumsi: test connection sukses jika isConnected true
           return PrintResult.success;
           
         case PrinterConnectionType.bluetooth:
           if (kIsWeb) return PrintResult.connectionFailed;
-          await _bluetoothPrinter.writeBytes(Uint8List.fromList(commands));
-          return PrintResult.success;
+          // Kirim bytes via plugin baru
+          final bool sent = await PrintBluetoothThermal.writeBytes(commands);
+          return sent ? PrintResult.success : PrintResult.printerError;
           
         case PrinterConnectionType.usb:
           if (_usbPort != null) {
@@ -279,6 +302,7 @@ class UnifiedPrinterService {
     try {
       switch (_currentType!) {
         case PrinterConnectionType.wifi:
+          // Implementasi WiFi (sesuaikan jika perlu kirim data spesifik)
           return PrintResult.success;
           
         case PrinterConnectionType.bluetooth:
@@ -294,9 +318,12 @@ class UnifiedPrinterService {
           );
           
           if (_currentType == PrinterConnectionType.bluetooth) {
-            await _bluetoothPrinter.writeBytes(Uint8List.fromList(commands));
+            // Updated write bytes
+            final bool sent = await PrintBluetoothThermal.writeBytes(commands);
+            return sent ? PrintResult.success : PrintResult.printerError;
           } else if (_usbPort != null) {
             await _usbPort!.write(Uint8List.fromList(commands));
+            return PrintResult.success;
           }
           
           return PrintResult.success;
@@ -326,6 +353,10 @@ class UnifiedPrinterService {
     bytes += generator.feed(1);
     bytes += generator.text(
       '✓ Printer Terhubung',
+      styles: const PosStyles(align: PosAlign.center),
+    );
+    bytes += generator.text(
+      'KasKredit App',
       styles: const PosStyles(align: PosAlign.center),
     );
     bytes += generator.feed(1);

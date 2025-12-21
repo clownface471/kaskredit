@@ -20,7 +20,7 @@ class CustomerListScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final CustomerController controller = Get.put(CustomerController());
+    final CustomerController controller = Get.put(CustomerController(),permanent: true,);
     final Rx<CustomerSortType> currentSort = CustomerSortType.nameAsc.obs;
 
     // Fungsi untuk sorting

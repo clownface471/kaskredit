@@ -7,7 +7,6 @@ import 'package:kaskredit_1/shared/models/transaction.dart';
 import 'package:intl/intl.dart';
 import 'package:image/image.dart' as img;
 
-/// Print Result Enum - Declare OUTSIDE class
 enum PrintResult {
   success,
   connectionFailed,
@@ -18,13 +17,6 @@ enum PrintResult {
   cancelled,
 }
 
-/// Enhanced Printer Service v2
-/// Improvements:
-/// - Better error handling dengan error codes
-/// - Auto-reconnect mechanism
-/// - Print retry logic
-/// - Connection pooling
-/// - Better logging
 class EnhancedPrinterServiceV2 {
   static const PaperSize PAPER_58MM = PaperSize.mm58;
   static const PaperSize PAPER_80MM = PaperSize.mm80;
@@ -35,13 +27,12 @@ class EnhancedPrinterServiceV2 {
   
   bool get isConnected => _isConnected;
 
-  /// Get error message from result
   String getErrorMessage(PrintResult result) {
     switch (result) {
       case PrintResult.success:
         return 'Print berhasil';
       case PrintResult.connectionFailed:
-        return 'Gagal terhubung ke printer. Periksa koneksi WiFi.';
+        return 'Gagal terhubung ke printer. Periksa koneksi WiFi/Bluetooth.';
       case PrintResult.printerBusy:
         return 'Printer sedang sibuk. Coba lagi.';
       case PrintResult.paperOut:
@@ -55,15 +46,21 @@ class EnhancedPrinterServiceV2 {
     }
   }
 
-  bool get isConnect => _isConnected;
-
-  /// Connect dengan retry mechanism
+  // FIX: Perbaikan logika koneksi untuk menangani 'already connected'
   Future<bool> connect(
     String printerIp, {
     int port = 9100,
-    int maxRetries = 3,
+    int maxRetries = 2, // Kurangi retry agar tidak spamming
     Duration timeout = const Duration(seconds: 5),
   }) async {
+    // Jika IP sama dan status connected, coba tes ping ringan atau anggap connected
+    if (_isConnected && _lastConnectedIp == printerIp && _printer != null) {
+      return true;
+    }
+
+    // Reset koneksi lama jika ada
+    disconnect(); 
+
     for (int attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         final profile = await CapabilityProfile.load();
@@ -81,12 +78,19 @@ class EnhancedPrinterServiceV2 {
           return true;
         }
 
-        // Jika gagal, tunggu sebelum retry
         if (attempt < maxRetries) {
           await Future.delayed(Duration(seconds: attempt));
         }
       } catch (e) {
         print('Connection attempt $attempt failed: $e');
+        
+        // FIX: Handle error jika sudah connect
+        if (e.toString().contains("already connected")) {
+          _isConnected = true;
+          _lastConnectedIp = printerIp;
+          return true;
+        }
+        
         if (attempt == maxRetries) {
           _isConnected = false;
           return false;
@@ -97,21 +101,21 @@ class EnhancedPrinterServiceV2 {
     return false;
   }
 
-  /// Disconnect printer
   void disconnect() {
     try {
-      _printer?.disconnect();
-      _isConnected = false;
+      if (_printer != null) {
+        _printer!.disconnect();
+      }
     } catch (e) {
       print('Disconnect error: $e');
+    } finally {
+      _isConnected = false;
     }
   }
 
-  /// Auto-reconnect jika koneksi terputus
   Future<bool> ensureConnected(String printerIp) async {
-    if (_isConnected && _lastConnectedIp == printerIp) {
-      return true;
-    }
+    // FIX: Selalu panggil connect untuk memastikan socket valid, 
+    // karena connect() yang baru sudah menghandle "already connected"
     return await connect(printerIp);
   }
 
@@ -177,7 +181,6 @@ class EnhancedPrinterServiceV2 {
         return PrintResult.connectionFailed;
       }
 
-      // Print test page
       _printer!.text(
         'TEST KONEKSI',
         styles: const PosStyles(
@@ -188,10 +191,13 @@ class EnhancedPrinterServiceV2 {
         ),
       );
       _printer!.feed(1);
+      
+      // FIX: Hapus karakter '√' yang menyebabkan crash
       _printer!.text(
-        '✓ Printer Terhubung',
+        '[OK] Printer Terhubung', 
         styles: const PosStyles(align: PosAlign.center),
       );
+      
       _printer!.feed(1);
       _printer!.text(
         DateTime.now().toString(),
@@ -204,6 +210,7 @@ class EnhancedPrinterServiceV2 {
       return PrintResult.success;
     } catch (e) {
       print('Test connection error: $e');
+      disconnect(); // Pastikan disconnect jika error
       return PrintResult.printerError;
     }
   }

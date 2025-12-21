@@ -8,6 +8,7 @@ part of 'payment.dart';
 
 _$PaymentImpl _$$PaymentImplFromJson(Map<String, dynamic> json) =>
     _$PaymentImpl(
+      id: json['id'] as String?,
       userId: json['userId'] as String,
       transactionId: json['transactionId'] as String,
       customerId: json['customerId'] as String,
@@ -18,12 +19,13 @@ _$PaymentImpl _$$PaymentImplFromJson(Map<String, dynamic> json) =>
       remainingDebt: (json['remainingDebt'] as num).toDouble(),
       notes: json['notes'] as String?,
       receivedBy: json['receivedBy'] as String,
-      paymentDate: _dateTimeFromTimestamp(json['paymentDate'] as Timestamp),
-      createdAt: _dateTimeFromTimestamp(json['createdAt'] as Timestamp),
+      paymentDate: DateTime.parse(json['paymentDate'] as String),
+      createdAt: DateTime.parse(json['createdAt'] as String),
     );
 
 Map<String, dynamic> _$$PaymentImplToJson(_$PaymentImpl instance) =>
     <String, dynamic>{
+      'id': instance.id,
       'userId': instance.userId,
       'transactionId': instance.transactionId,
       'customerId': instance.customerId,
@@ -34,6 +36,6 @@ Map<String, dynamic> _$$PaymentImplToJson(_$PaymentImpl instance) =>
       'remainingDebt': instance.remainingDebt,
       'notes': instance.notes,
       'receivedBy': instance.receivedBy,
-      'paymentDate': _dateTimeToTimestamp(instance.paymentDate),
-      'createdAt': _dateTimeToTimestamp(instance.createdAt),
+      'paymentDate': instance.paymentDate.toIso8601String(),
+      'createdAt': instance.createdAt.toIso8601String(),
     };

@@ -21,7 +21,6 @@ Payment _$PaymentFromJson(Map<String, dynamic> json) {
 
 /// @nodoc
 mixin _$Payment {
-  @JsonKey(includeFromJson: false, includeToJson: false)
   String? get id => throw _privateConstructorUsedError;
   String get userId => throw _privateConstructorUsedError;
   String get transactionId => throw _privateConstructorUsedError;
@@ -33,9 +32,7 @@ mixin _$Payment {
   double get remainingDebt => throw _privateConstructorUsedError;
   String? get notes => throw _privateConstructorUsedError;
   String get receivedBy => throw _privateConstructorUsedError;
-  @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
   DateTime get paymentDate => throw _privateConstructorUsedError;
-  @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
   DateTime get createdAt => throw _privateConstructorUsedError;
 
   /// Serializes this Payment to a JSON map.
@@ -53,7 +50,7 @@ abstract class $PaymentCopyWith<$Res> {
       _$PaymentCopyWithImpl<$Res, Payment>;
   @useResult
   $Res call({
-    @JsonKey(includeFromJson: false, includeToJson: false) String? id,
+    String? id,
     String userId,
     String transactionId,
     String customerId,
@@ -64,9 +61,7 @@ abstract class $PaymentCopyWith<$Res> {
     double remainingDebt,
     String? notes,
     String receivedBy,
-    @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
     DateTime paymentDate,
-    @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
     DateTime createdAt,
   });
 }
@@ -169,7 +164,7 @@ abstract class _$$PaymentImplCopyWith<$Res> implements $PaymentCopyWith<$Res> {
   @override
   @useResult
   $Res call({
-    @JsonKey(includeFromJson: false, includeToJson: false) String? id,
+    String? id,
     String userId,
     String transactionId,
     String customerId,
@@ -180,9 +175,7 @@ abstract class _$$PaymentImplCopyWith<$Res> implements $PaymentCopyWith<$Res> {
     double remainingDebt,
     String? notes,
     String receivedBy,
-    @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
     DateTime paymentDate,
-    @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
     DateTime createdAt,
   });
 }
@@ -278,7 +271,7 @@ class __$$PaymentImplCopyWithImpl<$Res>
 @JsonSerializable()
 class _$PaymentImpl implements _Payment {
   const _$PaymentImpl({
-    @JsonKey(includeFromJson: false, includeToJson: false) this.id,
+    this.id,
     required this.userId,
     required this.transactionId,
     required this.customerId,
@@ -289,9 +282,7 @@ class _$PaymentImpl implements _Payment {
     required this.remainingDebt,
     this.notes,
     required this.receivedBy,
-    @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
     required this.paymentDate,
-    @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
     required this.createdAt,
   });
 
@@ -299,7 +290,6 @@ class _$PaymentImpl implements _Payment {
       _$$PaymentImplFromJson(json);
 
   @override
-  @JsonKey(includeFromJson: false, includeToJson: false)
   final String? id;
   @override
   final String userId;
@@ -322,10 +312,8 @@ class _$PaymentImpl implements _Payment {
   @override
   final String receivedBy;
   @override
-  @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
   final DateTime paymentDate;
   @override
-  @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
   final DateTime createdAt;
 
   @override
@@ -398,7 +386,7 @@ class _$PaymentImpl implements _Payment {
 
 abstract class _Payment implements Payment {
   const factory _Payment({
-    @JsonKey(includeFromJson: false, includeToJson: false) final String? id,
+    final String? id,
     required final String userId,
     required final String transactionId,
     required final String customerId,
@@ -409,16 +397,13 @@ abstract class _Payment implements Payment {
     required final double remainingDebt,
     final String? notes,
     required final String receivedBy,
-    @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
     required final DateTime paymentDate,
-    @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
     required final DateTime createdAt,
   }) = _$PaymentImpl;
 
   factory _Payment.fromJson(Map<String, dynamic> json) = _$PaymentImpl.fromJson;
 
   @override
-  @JsonKey(includeFromJson: false, includeToJson: false)
   String? get id;
   @override
   String get userId;
@@ -441,10 +426,8 @@ abstract class _Payment implements Payment {
   @override
   String get receivedBy;
   @override
-  @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
   DateTime get paymentDate;
   @override
-  @JsonKey(fromJson: _dateTimeFromTimestamp, toJson: _dateTimeToTimestamp)
   DateTime get createdAt;
 
   /// Create a copy of Payment

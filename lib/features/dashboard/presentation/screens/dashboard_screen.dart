@@ -1,3 +1,4 @@
+// lib/features/dashboard/presentation/screens/dashboard_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:kaskredit_1/core/navigation/app_routes.dart';
@@ -29,22 +30,64 @@ class DashboardScreen extends StatelessWidget {
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => controller.refreshData(),
+          // ✅ Refresh button with animation
+          Obx(() => IconButton(
+            icon: controller.isLoading.value
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.refresh),
+            onPressed: controller.isLoading.value 
+                ? null 
+                : () => controller.refreshData(),
             tooltip: 'Refresh',
+          )),
+          
+          // ✅ Notification with badge
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications_outlined),
+                onPressed: () => _showNotifications(context, controller),
+                tooltip: 'Notifikasi',
+              ),
+              Obx(() {
+                final alerts = _getAlertCount(controller.stats.value);
+                if (alerts == 0) return const SizedBox.shrink();
+                
+                return Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      alerts.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                );
+              }),
+            ],
           ),
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {
-              Get.snackbar(
-                'Notifikasi',
-                'Fitur notifikasi akan segera tersedia',
-                snackPosition: SnackPosition.BOTTOM,
-              );
-            },
-            tooltip: 'Notifikasi',
-          ),
+          
           PopupMenuButton(
             icon: const Icon(Icons.more_vert),
             itemBuilder: (context) => [
@@ -71,7 +114,7 @@ class DashboardScreen extends StatelessWidget {
             ],
             onSelected: (value) {
               if (value == 'logout') {
-                authController.signOut();
+                _confirmLogout(authController);
               } else if (value == 'settings') {
                 Get.toNamed(AppRoutes.SETTINGS);
               }
@@ -80,18 +123,18 @@ class DashboardScreen extends StatelessWidget {
         ],
       ),
       
-      // Floating Action Button untuk Transaksi Kasir
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Get.toNamed(AppRoutes.CASHIER),
         icon: const Icon(Icons.point_of_sale),
         label: const Text("KASIR"),
         backgroundColor: Theme.of(context).colorScheme.primary,
+        elevation: 4,
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
 
       body: Obx(() {
         if (controller.isLoading.value && controller.stats.value == null) {
-          return const Center(child: CircularProgressIndicator());
+          return _buildLoadingSkeleton();
         }
         
         final safeStats = controller.stats.value ?? const DashboardStats(
@@ -109,33 +152,32 @@ class DashboardScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ✨ BARU: Quick Stats Cards
+                  // ✅ Quick Stats Cards with Hero Animation
                   _buildQuickStatsCards(safeStats),
                   
                   const SizedBox(height: 20),
 
-                  // ✨ BARU: Today's Summary
+                  // ✅ Today's Summary with Gradient
                   _buildTodaySummary(safeStats),
 
                   const SizedBox(height: 20),
 
-                  // ✨ BARU: Weekly Sales Chart
-                  // PERBAIKAN: Menghapus Obx di sini karena 'WeeklySalesChart' tidak mengakses observable secara langsung di builder ini
+                  // ✅ Weekly Sales Chart
                   WeeklySalesChart(controller: controller),
 
                   const SizedBox(height: 20),
 
-                  // ✨ BARU: Alerts & Warnings
+                  // ✅ Alerts & Warnings
                   _buildAlertsSection(safeStats),
 
                   const SizedBox(height: 20),
 
-                  // Section: Quick Actions
+                  // ✅ Quick Actions with Better Icons
                   _buildQuickActions(),
 
                   const SizedBox(height: 20),
 
-                  // Section: Menu Grid
+                  // ✅ Menu Grid with Better Layout
                   const Text(
                     "Menu Utama",
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -143,7 +185,7 @@ class DashboardScreen extends StatelessWidget {
                   const SizedBox(height: 12),
                   _buildMenuGrid(),
 
-                  const SizedBox(height: 80), // Space untuk FAB
+                  const SizedBox(height: 80),
                 ],
               ),
             ),
@@ -153,7 +195,42 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  // ✨ BARU: Quick Stats Cards (3 cards horizontal scroll)
+  // ✅ NEW: Loading Skeleton
+  Widget _buildLoadingSkeleton() {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            Row(
+              children: List.generate(3, (index) => 
+                Expanded(
+                  child: Container(
+                    margin: EdgeInsets.only(right: index < 2 ? 12 : 0),
+                    height: 140,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              height: 200,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ✅ IMPROVED: Quick Stats Cards with Animation
   Widget _buildQuickStatsCards(DashboardStats stats) {
     return SizedBox(
       height: 140,
@@ -162,33 +239,36 @@ class DashboardScreen extends StatelessWidget {
         children: [
           _QuickStatCard(
             title: "Omzet Hari Ini",
-            value: Formatters.currency.format(stats.todaySales),
+            value: NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ').format(stats.todaySales),
             icon: Icons.trending_up,
             color: Colors.green,
             subtitle: "${stats.todayTransactions} transaksi",
+            onTap: () => Get.toNamed(AppRoutes.HISTORY),
           ),
           _QuickStatCard(
             title: "Profit Hari Ini",
-            value: Formatters.currency.format(stats.todayProfit),
+            value: NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ').format(stats.todayProfit),
             icon: Icons.attach_money,
             color: Colors.blue,
-            subtitle: stats.todayProfit > 0 
+            subtitle: stats.todaySales > 0 
                 ? "${((stats.todayProfit / stats.todaySales) * 100).toStringAsFixed(0)}% margin"
                 : "0% margin",
+            onTap: () => Get.toNamed(AppRoutes.REPORTS),
           ),
           _QuickStatCard(
             title: "Total Piutang",
-            value: Formatters.currency.format(stats.totalOutstandingDebt),
+            value: NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ').format(stats.totalOutstandingDebt),
             icon: Icons.credit_card,
             color: Colors.orange,
             subtitle: "${stats.totalDebtors} pelanggan",
+            onTap: () => Get.toNamed(AppRoutes.DEBT),
           ),
         ],
       ),
     );
   }
 
-  // ✨ BARU: Today's Summary Card
+  // ✅ IMPROVED: Today's Summary with Better Design
   Widget _buildTodaySummary(DashboardStats stats) {
     return Card(
       elevation: 4,
@@ -240,14 +320,14 @@ class DashboardScreen extends StatelessWidget {
             const Divider(color: Colors.white24, height: 24),
             _SummaryRow(
               label: "Omzet",
-              value: Formatters.currency.format(stats.todaySales),
+              value: NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ').format(stats.todaySales),
               icon: Icons.shopping_cart,
               color: Colors.greenAccent,
             ),
             const SizedBox(height: 12),
             _SummaryRow(
               label: "Profit",
-              value: Formatters.currency.format(stats.todayProfit),
+              value: NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ').format(stats.todayProfit),
               icon: Icons.trending_up,
               color: Colors.lightBlueAccent,
             ),
@@ -255,7 +335,7 @@ class DashboardScreen extends StatelessWidget {
               const SizedBox(height: 12),
               _SummaryRow(
                 label: "Kredit Baru",
-                value: Formatters.currency.format(stats.todayNewDebt),
+                value: NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ').format(stats.todayNewDebt),
                 icon: Icons.credit_score,
                 color: Colors.orangeAccent,
               ),
@@ -266,7 +346,7 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  // ✨ BARU: Alerts & Warnings Section
+  // ✅ IMPROVED: Alerts Section with Better UX
   Widget _buildAlertsSection(DashboardStats stats) {
     final hasAlerts = stats.lowStockProducts > 0 || stats.totalDebtors > 0;
     
@@ -277,9 +357,19 @@ class DashboardScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          "Perhatian",
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              "Perhatian",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            TextButton.icon(
+              onPressed: () {}, // View all alerts
+              icon: const Icon(Icons.list, size: 16),
+              label: const Text('Lihat Semua', style: TextStyle(fontSize: 12)),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         if (stats.lowStockProducts > 0)
@@ -294,7 +384,7 @@ class DashboardScreen extends StatelessWidget {
           _AlertCard(
             icon: Icons.account_balance_wallet,
             title: "Piutang Aktif",
-            message: "${stats.totalDebtors} pelanggan belum lunas",
+            message: "${stats.totalDebtors} pelanggan belum lunas (${NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ').format(stats.totalOutstandingDebt)})",
             color: Colors.red,
             onTap: () => Get.toNamed(AppRoutes.DEBT),
           ),
@@ -302,7 +392,7 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  // ✨ IMPROVED: Quick Actions dengan icon lebih besar
+  // ✅ IMPROVED: Quick Actions with Better Icons
   Widget _buildQuickActions() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -393,15 +483,131 @@ class DashboardScreen extends StatelessWidget {
       ],
     );
   }
+
+  // ✅ NEW: Show notifications bottom sheet
+  void _showNotifications(BuildContext context, DashboardController controller) {
+    final stats = controller.stats.value;
+    if (stats == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Notifikasi',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const Divider(),
+            if (stats.lowStockProducts > 0) ...[
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Colors.orange,
+                  child: Icon(Icons.warning, color: Colors.white),
+                ),
+                title: const Text('Stok Menipis'),
+                subtitle: Text('${stats.lowStockProducts} produk perlu restock'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.pop(context);
+                  Get.toNamed(AppRoutes.PRODUCTS);
+                },
+              ),
+            ],
+            if (stats.totalDebtors > 0) ...[
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Colors.red,
+                  child: Icon(Icons.credit_card, color: Colors.white),
+                ),
+                title: const Text('Piutang Aktif'),
+                subtitle: Text('${stats.totalDebtors} pelanggan belum lunas'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.pop(context);
+                  Get.toNamed(AppRoutes.DEBT);
+                },
+              ),
+            ],
+            if (stats.lowStockProducts == 0 && stats.totalDebtors == 0) ...[
+              const Padding(
+                padding: EdgeInsets.all(20),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(Icons.check_circle, size: 48, color: Colors.green),
+                      SizedBox(height: 8),
+                      Text('Tidak ada notifikasi'),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ✅ NEW: Confirm logout
+  void _confirmLogout(AuthController authController) {
+    Get.dialog(
+      AlertDialog(
+        title: const Text('Konfirmasi Keluar'),
+        content: const Text('Yakin ingin keluar dari aplikasi?'),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              Get.back();
+              authController.signOut();
+            },
+            child: const Text('Keluar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  int _getAlertCount(DashboardStats? stats) {
+    if (stats == null) return 0;
+    int count = 0;
+    if (stats.lowStockProducts > 0) count++;
+    if (stats.totalDebtors > 0) count++;
+    return count;
+  }
 }
 
-// ✨ BARU: Quick Stat Card Widget
+// ✅ IMPROVED: Quick Stat Card with onTap
 class _QuickStatCard extends StatelessWidget {
   final String title;
   final String value;
   final IconData icon;
   final Color color;
   final String subtitle;
+  final VoidCallback? onTap;
 
   const _QuickStatCard({
     required this.title,
@@ -409,76 +615,81 @@ class _QuickStatCard extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.subtitle,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 200,
-      margin: const EdgeInsets.only(right: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.3), width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Icon(icon, color: color, size: 28),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.2),
-                  shape: BoxShape.circle,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: 200,
+        margin: const EdgeInsets.only(right: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withOpacity(0.3), width: 1),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Icon(icon, color: color, size: 28),
+                if (onTap != null)
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.arrow_forward, color: color, size: 16),
+                  ),
+              ],
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[700],
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-                child: Icon(Icons.arrow_upward, color: color, size: 16),
-              ),
-            ],
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[700],
-                  fontWeight: FontWeight.w500,
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: color,
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey[600],
+                  ),
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.grey[600],
-                ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-// Widget untuk Summary Row
 class _SummaryRow extends StatelessWidget {
   final String label;
   final String value;
@@ -517,7 +728,6 @@ class _SummaryRow extends StatelessWidget {
   }
 }
 
-// ✨ BARU: Alert Card Widget
 class _AlertCard extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -584,7 +794,6 @@ class _AlertCard extends StatelessWidget {
   }
 }
 
-// ✨ BARU: Quick Action Button Widget
 class _QuickActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -628,7 +837,6 @@ class _QuickActionButton extends StatelessWidget {
   }
 }
 
-// Menu Card Widget (improved)
 class _MenuCard extends StatelessWidget {
   final String title;
   final IconData icon;

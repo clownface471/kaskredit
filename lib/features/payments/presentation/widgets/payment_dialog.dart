@@ -13,36 +13,36 @@ class PaymentDialogController extends GetxController {
   final Customer customer;
   final TransactionRepository _transactionRepo = TransactionRepository();
   final PaymentRepository _paymentRepo = PaymentRepository();
-  
+
   final amountController = TextEditingController();
   final notesController = TextEditingController();
-  
+
   final RxList<Transaction> debtTransactions = <Transaction>[].obs;
   final Rxn<String> selectedTransactionId = Rxn<String>();
   final RxBool isLoading = false.obs;
   final RxBool isFetchingTransactions = true.obs;
   final RxString selectedPaymentMethod = 'CASH'.obs;
-  
+
   PaymentDialogController(this.customer);
-  
+
   @override
   void onInit() {
     super.onInit();
     _loadDebtTransactions();
   }
-  
+
   @override
   void onClose() {
     amountController.dispose();
     notesController.dispose();
     super.onClose();
   }
-  
+
   void _loadDebtTransactions() {
     _transactionRepo.getTransactionsWithDebt(customer.id!).listen((txs) {
       debtTransactions.value = txs;
       isFetchingTransactions.value = false;
-      
+
       // Validasi transaksi terpilih masih ada
       if (selectedTransactionId.value != null) {
         final exists = txs.any((t) => t.id == selectedTransactionId.value);
@@ -53,48 +53,49 @@ class PaymentDialogController extends GetxController {
       }
     });
   }
-  
+
   Transaction? get selectedTransaction {
     if (selectedTransactionId.value == null) return null;
     return debtTransactions.firstWhereOrNull(
-      (t) => t.id == selectedTransactionId.value
+      (t) => t.id == selectedTransactionId.value,
     );
   }
-  
+
   double get remainingDebt => selectedTransaction?.remainingDebt ?? 0;
   double get paymentAmount => double.tryParse(amountController.text) ?? 0;
-  double get newRemainingDebt => (remainingDebt - paymentAmount).clamp(0, double.infinity);
+  double get newRemainingDebt =>
+      (remainingDebt - paymentAmount).clamp(0, double.infinity);
   bool get willBePaidOff => newRemainingDebt == 0;
-  
+
   String? validatePaymentAmount() {
     if (selectedTransactionId.value == null) {
       return 'Pilih transaksi terlebih dahulu';
     }
-    
+
     if (paymentAmount <= 0) {
       return 'Jumlah bayar harus lebih dari 0';
     }
-    
+
     if (paymentAmount > remainingDebt + 1) {
       return 'Jumlah bayar melebihi sisa utang';
     }
-    
+
     return null;
   }
-  
+
   Future<void> processPayment() async {
     final validation = validatePaymentAmount();
     if (validation != null) {
       GetXUtils.showError(validation);
       return;
     }
-    
+
     final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId == null) {
       GetXUtils.showError('User tidak login');
       return;
     }
-    
+
     // Show confirmation
     final confirmed = await GetXUtils.showConfirmDialog(
       title: 'Konfirmasi Pembayaran',
@@ -105,11 +106,11 @@ class PaymentDialogController extends GetxController {
       cancelText: 'Batal',
       confirmColor: Colors.green,
     );
-    
+
     if (!confirmed) return;
-    
+
     isLoading.value = true;
-    
+
     try {
       await _paymentRepo.processPayment(
         transactionId: selectedTransactionId.value!,
@@ -120,11 +121,11 @@ class PaymentDialogController extends GetxController {
         customerName: customer.name,
         notes: notesController.text.isNotEmpty ? notesController.text : null,
       );
-      
+
       Get.back(); // Close dialog
       GetXUtils.showSuccess(
-        willBePaidOff 
-            ? 'Pembayaran berhasil! Transaksi sudah LUNAS.' 
+        willBePaidOff
+            ? 'Pembayaran berhasil! Transaksi sudah LUNAS.'
             : 'Pembayaran berhasil diproses',
       );
     } catch (e) {
@@ -133,12 +134,14 @@ class PaymentDialogController extends GetxController {
       isLoading.value = false;
     }
   }
-  
+
   void selectTransaction(String? transactionId) {
     selectedTransactionId.value = transactionId;
-    
+
     if (transactionId != null) {
-      final tx = debtTransactions.firstWhereOrNull((t) => t.id == transactionId);
+      final tx = debtTransactions.firstWhereOrNull(
+        (t) => t.id == transactionId,
+      );
       if (tx != null) {
         // Auto-fill dengan sisa utang
         amountController.text = tx.remainingDebt.toStringAsFixed(0);
@@ -147,7 +150,7 @@ class PaymentDialogController extends GetxController {
       amountController.clear();
     }
   }
-  
+
   void setPaymentMethod(String method) {
     selectedPaymentMethod.value = method;
   }
@@ -155,13 +158,13 @@ class PaymentDialogController extends GetxController {
 
 class PaymentDialog extends StatelessWidget {
   final Customer customer;
-  
+
   const PaymentDialog({super.key, required this.customer});
 
   @override
   Widget build(BuildContext context) {
     final controller = Get.put(PaymentDialogController(customer));
-    
+
     return Container(
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.85,
@@ -185,11 +188,7 @@ class PaymentDialog extends StatelessWidget {
                   color: Colors.green.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
-                  Icons.payment,
-                  color: Colors.green,
-                  size: 28,
-                ),
+                child: const Icon(Icons.payment, color: Colors.green, size: 28),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -202,10 +201,7 @@ class PaymentDialog extends StatelessWidget {
                     ),
                     Text(
                       customer.name,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                     ),
                   ],
                 ),
@@ -216,18 +212,16 @@ class PaymentDialog extends StatelessWidget {
               ),
             ],
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // Total Debt Info
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.red.withOpacity(0.05),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Colors.red.withOpacity(0.2),
-              ),
+              border: Border.all(color: Colors.red.withOpacity(0.2)),
             ),
             child: Row(
               children: [
@@ -239,10 +233,7 @@ class PaymentDialog extends StatelessWidget {
                     children: [
                       Text(
                         'Total Utang Customer',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                       ),
                       Text(
                         Formatters.currency(customer.totalDebt),
@@ -258,9 +249,9 @@ class PaymentDialog extends StatelessWidget {
               ],
             ),
           ),
-          
+
           const Divider(height: 32),
-          
+
           // Content
           Flexible(
             child: SingleChildScrollView(
@@ -270,13 +261,10 @@ class PaymentDialog extends StatelessWidget {
                   // 1. Select Transaction
                   const Text(
                     '1. Pilih Transaksi',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
-                  
+
                   Obx(() {
                     if (controller.isFetchingTransactions.value) {
                       return const Center(
@@ -286,17 +274,18 @@ class PaymentDialog extends StatelessWidget {
                         ),
                       );
                     }
-                    
+
                     if (controller.debtTransactions.isEmpty) {
                       return const Padding(
                         padding: EdgeInsets.all(16.0),
                         child: Text("Tidak ada transaksi utang aktif."),
                       );
                     }
-                    
+
                     return DropdownButtonFormField<String>(
                       value: controller.selectedTransactionId.value,
                       isExpanded: true,
+                      itemHeight: 50.0,
                       hint: const Text("Pilih Transaksi... (Wajib)"),
                       decoration: InputDecoration(
                         border: OutlineInputBorder(
@@ -310,43 +299,81 @@ class PaymentDialog extends StatelessWidget {
                       items: controller.debtTransactions.map((tx) {
                         return DropdownMenuItem<String>(
                           value: tx.id,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                tx.transactionNumber,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              Text(
-                                'Sisa: ${Formatters.currency(tx.remainingDebt)}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                            ],
+                          // ✅ FIX: Single line text instead of Column
+                          child: Text(
+                            '${tx.transactionNumber} - ${Formatters.currency(tx.remainingDebt)}',
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                            style: const TextStyle(fontSize: 14),
                           ),
                         );
                       }).toList(),
                       onChanged: controller.selectTransaction,
+                      selectedItemBuilder: (context) {
+                        return controller.debtTransactions.map((tx) {
+                          return Text(
+                            tx.transactionNumber,
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          );
+                        }).toList();
+                      },
                     );
                   }),
-                  
+
+                  Obx(() {
+  if (controller.selectedTransaction == null) {
+    return const SizedBox.shrink();
+  }
+  
+  final tx = controller.selectedTransaction!;
+  return Container(
+    margin: const EdgeInsets.only(top: 8),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: Colors.blue.withOpacity(0.05),
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: Colors.blue.withOpacity(0.2)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Sisa Utang:',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            Text(
+              Formatters.currency(tx.remainingDebt),
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.red,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '${tx.items.length} item',
+          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+        ),
+      ],
+    ),
+  );
+}),
+
                   const SizedBox(height: 24),
-                  
+
                   // 2. Payment Amount
                   const Text(
                     '2. Jumlah Bayar',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
-                  
+
                   Obx(() {
                     return TextFormField(
                       controller: controller.amountController,
@@ -364,8 +391,9 @@ class PaymentDialog extends StatelessWidget {
                                 color: Colors.green,
                                 tooltip: 'Bayar Penuh',
                                 onPressed: () {
-                                  controller.amountController.text =
-                                      controller.remainingDebt.toStringAsFixed(0);
+                                  controller.amountController.text = controller
+                                      .remainingDebt
+                                      .toStringAsFixed(0);
                                 },
                               )
                             : null,
@@ -379,51 +407,50 @@ class PaymentDialog extends StatelessWidget {
                       },
                     );
                   }),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   // 3. Payment Method
                   const Text(
                     '3. Metode Pembayaran',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
-                  
+
                   Obx(() {
                     return Wrap(
                       spacing: 8,
                       children: [
                         ChoiceChip(
                           label: const Text('Tunai'),
-                          selected: controller.selectedPaymentMethod.value == 'CASH',
-                          onSelected: (_) => controller.setPaymentMethod('CASH'),
+                          selected:
+                              controller.selectedPaymentMethod.value == 'CASH',
+                          onSelected: (_) =>
+                              controller.setPaymentMethod('CASH'),
                           avatar: const Icon(Icons.payments, size: 18),
                         ),
                         ChoiceChip(
                           label: const Text('Transfer'),
-                          selected: controller.selectedPaymentMethod.value == 'TRANSFER',
-                          onSelected: (_) => controller.setPaymentMethod('TRANSFER'),
+                          selected:
+                              controller.selectedPaymentMethod.value ==
+                              'TRANSFER',
+                          onSelected: (_) =>
+                              controller.setPaymentMethod('TRANSFER'),
                           avatar: const Icon(Icons.account_balance, size: 18),
                         ),
                       ],
                     );
                   }),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   // 4. Notes (Optional)
                   const Text(
                     '4. Catatan (Opsional)',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
-                  
+
                   TextFormField(
                     controller: controller.notesController,
                     decoration: InputDecoration(
@@ -435,16 +462,16 @@ class PaymentDialog extends StatelessWidget {
                     ),
                     maxLines: 2,
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // Preview Calculation
                   Obx(() {
                     if (controller.selectedTransaction == null ||
                         controller.paymentAmount == 0) {
                       return const SizedBox.shrink();
                     }
-                    
+
                     return Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -488,17 +515,23 @@ class PaymentDialog extends StatelessWidget {
                           const Divider(height: 16),
                           _PreviewRow(
                             label: 'Utang Sebelumnya',
-                            value: Formatters.currency(controller.remainingDebt),
+                            value: Formatters.currency(
+                              controller.remainingDebt,
+                            ),
                           ),
                           _PreviewRow(
                             label: 'Jumlah Bayar',
-                            value: Formatters.currency(controller.paymentAmount),
+                            value: Formatters.currency(
+                              controller.paymentAmount,
+                            ),
                             valueColor: Colors.green,
                           ),
                           const Divider(height: 16),
                           _PreviewRow(
                             label: 'Sisa Utang',
-                            value: Formatters.currency(controller.newRemainingDebt),
+                            value: Formatters.currency(
+                              controller.newRemainingDebt,
+                            ),
                             isBold: true,
                             valueColor: controller.willBePaidOff
                                 ? Colors.green
@@ -542,14 +575,15 @@ class PaymentDialog extends StatelessWidget {
               ),
             ),
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // Submit Button
           Obx(() {
-            final canSubmit = controller.selectedTransaction != null &&
+            final canSubmit =
+                controller.selectedTransaction != null &&
                 !controller.isLoading.value;
-            
+
             return SizedBox(
               width: double.infinity,
               height: 50,
@@ -575,7 +609,7 @@ class PaymentDialog extends StatelessWidget {
                     ),
             );
           }),
-          
+
           const SizedBox(height: 16),
         ],
       ),
@@ -603,13 +637,7 @@ class _PreviewRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.grey[700],
-            ),
-          ),
+          Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[700])),
           Text(
             value,
             style: TextStyle(

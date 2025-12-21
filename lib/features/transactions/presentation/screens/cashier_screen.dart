@@ -1,3 +1,6 @@
+// lib/features/transactions/presentation/screens/cashier_screen.dart
+// FIXED VERSION - Update import dan print function
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -6,11 +9,12 @@ import 'package:kaskredit_1/features/customers/presentation/controllers/customer
 import 'package:kaskredit_1/features/products/presentation/controllers/product_controller.dart';
 import 'package:kaskredit_1/features/transactions/presentation/controllers/cart_controller.dart';
 import 'package:kaskredit_1/features/transactions/presentation/models/cart_state.dart';
-import 'package:kaskredit_1/features/printer/presentation/controllers/printer_controller.dart';
-import 'package:kaskredit_1/features/printer/data/printer_service.dart';
+// GANTI IMPORT INI:
+import 'package:kaskredit_1/features/printer/presentation/controllers/bluetooth_printer_controller.dart';
 import 'package:kaskredit_1/features/settings/presentation/screens/settings_screen.dart';
 import 'package:kaskredit_1/shared/models/customer.dart';
 import 'package:kaskredit_1/shared/models/transaction.dart';
+import 'package:kaskredit_1/core/navigation/app_routes.dart';
 
 class CashierScreen extends StatefulWidget {
   const CashierScreen({super.key});
@@ -25,8 +29,9 @@ class _CashierScreenState extends State<CashierScreen> {
   final CartController cartController = Get.put(CartController());
   final ProductController productController = Get.put(ProductController());
   final CustomerController customerController = Get.put(CustomerController());
-  final EnhancedPrinterControllerV2 printerController = Get.put(
-    EnhancedPrinterControllerV2(),
+  // GANTI INI:
+  final BluetoothPrinterController printerController = Get.put(
+    BluetoothPrinterController(),
   );
   final SettingsController settingsController = Get.put(SettingsController());
 
@@ -151,8 +156,7 @@ class _CashierScreenState extends State<CashierScreen> {
         return Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
-            // Mengubah ListView menjadi Column untuk mencegah overflow
-            mainAxisSize: MainAxisSize.min, // Penting agar tidak memenuhi layar
+            mainAxisSize: MainAxisSize.min,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -272,8 +276,6 @@ class _CashierScreenState extends State<CashierScreen> {
     return Obx(() {
       final customers = customerController.customers;
 
-      // FIX UTAMA: Mencari object yang sama persis dari list berdasarkan ID
-      // Ini mencegah error "There should be exactly one item..."
       Customer? selectedValue;
       if (cartController.selectedCustomer != null) {
         try {
@@ -281,15 +283,14 @@ class _CashierScreenState extends State<CashierScreen> {
             (c) => c.id == cartController.selectedCustomer!.id,
           );
         } catch (_) {
-          // Jika customer terpilih tidak ada di list (misal baru di-load), set null
           selectedValue = null;
         }
       }
 
       return DropdownButtonFormField<Customer>(
-        value: selectedValue, // Gunakan value yang sudah dicocokkan
+        value: selectedValue,
         hint: const Text("Pilih Pelanggan... (Wajib)"),
-        isExpanded: true, // Mencegah overflow teks panjang
+        isExpanded: true,
         decoration: const InputDecoration(
           prefixIcon: Icon(Icons.person),
           border: OutlineInputBorder(),
@@ -313,7 +314,7 @@ class _CashierScreenState extends State<CashierScreen> {
       decoration: InputDecoration(
         labelText: label,
         border: const OutlineInputBorder(),
-        isDense: true, // Membuat input lebih compact
+        isDense: true,
       ),
       keyboardType: TextInputType.number,
       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -400,15 +401,15 @@ class _CashierScreenState extends State<CashierScreen> {
       actions: [
         TextButton(onPressed: () => Get.back(), child: const Text("Tutup")),
         Obx(() {
-          final hasPrinter = printerController.printerIp.value != null;
+          final hasConnection = printerController.isConnected.value;
           return ElevatedButton.icon(
             icon: const Icon(Icons.print),
-            label: Text(hasPrinter ? "Cetak Struk" : "Setup Printer"),
+            label: Text(hasConnection ? "Cetak Struk" : "Setup Printer"),
             onPressed: () async {
               Get.back();
 
-              if (!hasPrinter) {
-                Get.toNamed('/settings/printer');
+              if (!hasConnection) {
+                Get.toNamed(AppRoutes.BLUETOOTH_PRINTER);
                 return;
               }
 
@@ -420,80 +421,27 @@ class _CashierScreenState extends State<CashierScreen> {
     );
   }
 
+  // FIXED PRINT FUNCTION:
   Future<void> _printReceipt(Transaction transaction) async {
-    final printerIp = printerController.printerIp.value;
-    if (printerIp == null) {
+    if (!printerController.isConnected.value) {
       Get.snackbar(
         "Error",
-        "Printer belum dikonfigurasi",
+        "Printer belum terhubung",
         snackPosition: SnackPosition.BOTTOM,
       );
       return;
     }
 
-    Get.dialog(
-      const Center(
-        child: Card(
-          child: Padding(
-            padding: EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text("Mencetak struk..."),
-              ],
-            ),
-          ),
-        ),
-      ),
-      barrierDismissible: false,
+    String shopName = settingsController.shopName.value;
+    if (shopName.isEmpty) shopName = "Toko Saya";
+
+    // Langsung panggil printReceipt dari controller
+    await printerController.printReceipt(
+      transaction: transaction,
+      shopName: shopName,
+      shopAddress: settingsController.shopAddress.value,
+      shopPhone: settingsController.shopPhone.value,
     );
-
-    try {
-      final printerService = EnhancedPrinterServiceV2();
-      String shopName = settingsController.shopName.value;
-      if (shopName.isEmpty) shopName = "Toko Saya";
-
-      // PERBAIKAN: result adalah PrintResult, bukan bool
-      final result = await printerService.printReceipt(
-        printerIp: printerIp,
-        transaction: transaction,
-        shopName: shopName,
-        shopAddress: settingsController.shopAddress.value,
-        shopPhone: settingsController.shopPhone.value,
-        footerNote: printerController.footerNote.value,
-      );
-
-      Get.back();
-
-      // PERBAIKAN: Cek dengan enum
-      if (result == PrintResult.success) {
-        Get.snackbar(
-          "Berhasil",
-          "Struk berhasil dicetak",
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.green.withOpacity(0.1),
-          icon: const Icon(Icons.check_circle, color: Colors.green),
-        );
-      } else {
-        // PERBAIKAN: Gunakan getErrorMessage
-        Get.snackbar(
-          "Gagal",
-          printerService.getErrorMessage(result),
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.red.withOpacity(0.1),
-        );
-      }
-    } catch (e) {
-      Get.back();
-      Get.snackbar(
-        "Error",
-        "Terjadi kesalahan: $e",
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red.withOpacity(0.1),
-      );
-    }
   }
 }
 

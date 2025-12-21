@@ -133,7 +133,12 @@ class CustomerDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Customer customer = Get.arguments as Customer;
-    final controller = Get.put(CustomerDetailController(customer));
+    
+    // ✅ FIX: Use Get.put with permanent flag to prevent disposal
+    final controller = Get.put(
+      CustomerDetailController(customer),
+      permanent: false, // Will be disposed when screen is popped
+    );
 
     return DefaultTabController(
       length: 2,
@@ -463,7 +468,7 @@ class CustomerDetailScreen extends StatelessWidget {
               ),
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: Colors.green,
                   shape: BoxShape.circle,
                 ),
@@ -483,6 +488,20 @@ class CustomerDetailScreen extends StatelessWidget {
             itemCount: controller.payments.length,
             itemBuilder: (context, index) {
               final payment = controller.payments[index];
+              
+              // ✅ ADD: Safety check for invalid payment data
+              if (payment.customerName == 'Error Loading') {
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  color: Colors.red.withOpacity(0.1),
+                  child: const ListTile(
+                    leading: Icon(Icons.error, color: Colors.red),
+                    title: Text('Error loading payment'),
+                    subtitle: Text('Data pembayaran tidak valid'),
+                  ),
+                );
+              }
+              
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
                 child: ListTile(

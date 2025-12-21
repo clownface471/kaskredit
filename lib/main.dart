@@ -1,7 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:intl/date_symbol_data_local.dart'; // <--- 1. TAMBAHKAN IMPORT INI
+import 'package:intl/date_symbol_data_local.dart';
 import 'firebase_options.dart';
 import 'core/navigation/app_pages.dart';
 import 'core/navigation/app_routes.dart';
@@ -15,8 +15,6 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // <--- 2. TAMBAHKAN BARIS INI
-  // Ini wajib dipanggil jika menggunakan locale 'id_ID' (Indonesia)
   await initializeDateFormatting('id_ID', null);
 
   runApp(const MyApp());

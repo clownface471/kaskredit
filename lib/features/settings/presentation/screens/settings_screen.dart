@@ -139,8 +139,8 @@ class SettingsScreen extends StatelessWidget {
             _buildMenuItem(
   icon: Icons.print,
   title: "Pengaturan Printer",
-  subtitle: "Atur printer WiFi, Bluetooth, atau USB",
-  onTap: () => Get.toNamed(AppRoutes.PRINTER_SELECTION),
+  subtitle: "Atur printer Bluetooth thermal",
+  onTap: () => Get.toNamed(AppRoutes.BLUETOOTH_PRINTER),
 ),
             const SizedBox(height: 8),
 
